@@ -1,0 +1,29 @@
+# Core Bot Dependencies
+pyrofork
+tgcrypto
+aiofiles
+aiohttp
+requests
+beautifulsoup4
+python-dotenv
+
+# Database
+pymongo
+dnspython
+umongo
+motor
+marshmallow
+
+# YouTube/Media
+yt-dlp
+youtube-search-python
+
+# IMDB
+cinemagoer
+
+# Utils
+pillow
+psutil
+pytz
+deep-translator
+gTTS

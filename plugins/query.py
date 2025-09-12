@@ -11,9 +11,12 @@ from Script import script
 from utils import get_size, is_subscribed, get_poster, search_gagala, temp, get_settings, save_group_settings, get_shortlink, get_time, humanbytes 
 from .ExtraMods.carbon import make_carbon
 
+# Subtitle Handler
+from .subtitle_handler import SubtitleHandler, LANGUAGE_MAPPING, create_language_selection_keyboard, create_more_languages_keyboard, create_subtitle_results_keyboard
+
 # Database Function 
 from database.connections_mdb import active_connection, all_connections, delete_connection, if_active, make_active, make_inactive
-from database.ia_filterdb import Media, get_file_details, get_search_results
+from database.simple_db import get_file_details, get_search_results, MediaDocument
 from database.filters_mdb import del_all, find_filter, get_filters
 from database.gfilters_mdb import find_gfilter, get_gfilters
 from database.users_chats_db import db
@@ -188,25 +191,42 @@ async def cb_handler(client: Client, query: CallbackQuery):
         files = files_[0]
         title = files.file_name
         size = get_size(files.file_size)
-        f_caption = f_caption = f"{title}"
-        settings = await get_settings(query.message.chat.id)
-        if CUSTOM_FILE_CAPTION:
-            try: f_caption = CUSTOM_FILE_CAPTION.format(mention=query.from_user.mention, file_name='' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)                               
-            except Exception as e: logger.exception(e)
+        
+        # Show subtitle selection before sending file
         try:
-            if AUTH_CHANNEL and not await is_subscribed(client, query):
-                return await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-            elif settings['botpm']:
-                return await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-            else:
-                await client.send_cached_media(chat_id=query.from_user.id, file_id=file_id, caption=f_caption, protect_content=True if ident == "filep" else False)
-                await query.answer('Cʜᴇᴄᴋ PM, I Hᴀᴠᴇ Sᴇɴᴛ Fɪʟᴇs Iɴ Pᴍ', show_alert=True)
-        except UserIsBlocked:
-            await query.answer('Uɴʙʟᴏᴄᴋ Tʜᴇ Bᴏᴛ Mᴀʜɴ !', show_alert=True)
-        except PeerIdInvalid:
-            await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
+            movie_name = title.replace('.', ' ').replace('_', ' ')
+            movie_name = re.sub(r'\b(1080p|720p|480p|HDTV|DVDRip|BRRip|x264|x265|HEVC|AAC|MP3|WEB-DL|BluRay)\b', '', movie_name, flags=re.IGNORECASE)
+            movie_name = re.sub(r'\s+', ' ', movie_name).strip()
+            
+            keyboard = create_language_selection_keyboard(query.from_user.id, file_id, movie_name)
+            await query.message.edit_text(
+                f"🎬 **{title}**\n📁 **Size:** {size}\n\n"
+                f"🔤 **Select subtitle language:**\n\n"
+                f"Choose your preferred subtitle language or select 'No Subtitles' to get the file directly.",
+                reply_markup=keyboard
+            )
         except Exception as e:
-            await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
+            logger.error(f"Error showing subtitle selection: {e}")
+            # Fallback to original behavior
+            f_caption = f"{title}"
+            settings = await get_settings(query.message.chat.id)
+            if CUSTOM_FILE_CAPTION:
+                try: f_caption = CUSTOM_FILE_CAPTION.format(mention=query.from_user.mention, file_name='' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)                               
+                except Exception as e: logger.exception(e)
+            try:
+                if AUTH_CHANNEL and not await is_subscribed(client, query):
+                    return await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
+                elif settings['botpm']:
+                    return await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
+                else:
+                    await client.send_cached_media(chat_id=query.from_user.id, file_id=file_id, caption=f_caption, protect_content=True if ident == "filep" else False)
+                    await query.answer('Cʜᴇᴄᴋ PM, I Hᴀᴠᴇ Sᴇɴᴛ Fɪʟᴇs Iɴ Pᴍ', show_alert=True)
+            except UserIsBlocked:
+                await query.answer('Uɴʙʟᴏᴄᴋ Tʜᴇ Bᴏᴛ Mᴀʜɴ !', show_alert=True)
+            except PeerIdInvalid:
+                await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
+            except Exception as e:
+                await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
      
     elif query.data.startswith("checksub"):
         if AUTH_CHANNEL and not await is_subscribed(client, query):
@@ -452,6 +472,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             InlineKeyboardButton('Gʀᴏᴜᴩ Mᴀɴᴀɢᴇʀ', 'gpmanager'), 
             InlineKeyboardButton('Bᴏᴛ Sᴛᴀᴛᴜꜱ ❄️', 'stats')
             ],[
+            InlineKeyboardButton('🎬 Sᴜʙᴛɪᴛʟᴇꜱ', 'subtitle_help')
+            ],[
             InlineKeyboardButton('✘ Cʟᴏꜱᴇ', 'close_data'),
             InlineKeyboardButton('« Bᴀᴄᴋ', 'start')           
         ]]
@@ -599,6 +621,319 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 InlineKeyboardButton(f"ᴡᴇʟᴄᴏᴍᴇ ᴍᴇꜱꜱᴀɢᴇ : {'ᴏɴ' if settings['welcome'] else 'ᴏꜰꜰ'}", f'setgs#welcome#{settings["welcome"]}#{str(grp_id)}')
             ]]
             await query.message.edit_reply_markup(InlineKeyboardMarkup(buttons))
+
+    # Subtitle Selection Handlers
+    elif query.data.startswith("subtitle#"):
+        try:
+            _, user_id, file_id, language, movie_name = query.data.split("#", 4)
+            if int(user_id) != query.from_user.id:
+                return await query.answer("This is not for you!", show_alert=True)
+            
+            await query.message.edit_text("🔍 **Searching for subtitles...**\n\nPlease wait while I search for subtitles in your selected language.")
+            
+            subtitle_handler = SubtitleHandler()
+            try:
+                subtitles = await subtitle_handler.search_all_sources(movie_name, language=language)
+                
+                if not subtitles:
+                    keyboard = create_language_selection_keyboard(user_id, file_id, movie_name)
+                    await query.message.edit_text(
+                        f"❌ **No subtitles found**\n\n"
+                        f"Sorry, I couldn't find subtitles for '{movie_name}' in {LANGUAGE_MAPPING.get(language, {}).get('name', language)}.\n\n"
+                        f"Try selecting a different language or choose 'No Subtitles'.",
+                        reply_markup=keyboard
+                    )
+                else:
+                    # Store subtitles in temp for later use
+                    temp.SUBTITLE_RESULTS = temp.SUBTITLE_RESULTS or {}
+                    temp.SUBTITLE_RESULTS[f"{user_id}_{file_id}_{language}"] = subtitles
+                    
+                    keyboard = create_subtitle_results_keyboard(subtitles, user_id, file_id, language, movie_name)
+                    lang_info = LANGUAGE_MAPPING.get(language, {'name': language, 'flag': '🏳️'})
+                    await query.message.edit_text(
+                        f"🎯 **Found {len(subtitles)} subtitles**\n\n"
+                        f"🎬 **Movie:** {movie_name}\n"
+                        f"🌐 **Language:** {lang_info['flag']} {lang_info['name']}\n\n"
+                        f"Select a subtitle to download:",
+                        reply_markup=keyboard
+                    )
+            finally:
+                await subtitle_handler.close_session()
+                
+        except Exception as e:
+            logger.error(f"Error in subtitle selection: {e}")
+            await query.answer("An error occurred while searching for subtitles. Please try again.", show_alert=True)
+    
+    elif query.data.startswith("more_langs#"):
+        try:
+            _, user_id, file_id, movie_name = query.data.split("#", 3)
+            if int(user_id) != query.from_user.id:
+                return await query.answer("This is not for you!", show_alert=True)
+            
+            keyboard = create_more_languages_keyboard(user_id, file_id, movie_name)
+            await query.message.edit_reply_markup(reply_markup=keyboard)
+        except Exception as e:
+            logger.error(f"Error showing more languages: {e}")
+    
+    elif query.data.startswith("back_langs#"):
+        try:
+            _, user_id, file_id, movie_name = query.data.split("#", 3)
+            if int(user_id) != query.from_user.id:
+                return await query.answer("This is not for you!", show_alert=True)
+            
+            keyboard = create_language_selection_keyboard(user_id, file_id, movie_name)
+            files_ = await get_file_details(file_id)
+            if files_:
+                title = files_[0].file_name
+                size = get_size(files_[0].file_size)
+                await query.message.edit_text(
+                    f"🎬 **{title}**\n📁 **Size:** {size}\n\n"
+                    f"🔤 **Select subtitle language:**\n\n"
+                    f"Choose your preferred subtitle language or select 'No Subtitles' to get the file directly.",
+                    reply_markup=keyboard
+                )
+        except Exception as e:
+            logger.error(f"Error going back to languages: {e}")
+    
+    elif query.data.startswith("no_subs#"):
+        try:
+            _, user_id, file_id = query.data.split("#")
+            if int(user_id) != query.from_user.id:
+                return await query.answer("This is not for you!", show_alert=True)
+            
+            # Send file without subtitles
+            files_ = await get_file_details(file_id)
+            if not files_:
+                return await query.answer('No Such File Exist.')
+            
+            files = files_[0]
+            title = files.file_name
+            size = get_size(files.file_size)
+            f_caption = f"{title}"
+            
+            if CUSTOM_FILE_CAPTION:
+                try:
+                    f_caption = CUSTOM_FILE_CAPTION.format(
+                        mention=query.from_user.mention, 
+                        file_name=title or '', 
+                        file_size=size or '', 
+                        file_caption=f_caption or ''
+                    )
+                except Exception as e:
+                    logger.exception(e)
+            
+            await query.message.edit_text("📤 **Sending file...**\n\nYour movie file is being sent to your PM.")
+            
+            try:
+                if AUTH_CHANNEL and not await is_subscribed(client, query):
+                    return await query.answer(url=f"https://t.me/{temp.U_NAME}?start=files_{file_id}")
+                else:
+                    await client.send_cached_media(
+                        chat_id=query.from_user.id, 
+                        file_id=file_id, 
+                        caption=f_caption, 
+                        protect_content=False
+                    )
+                    await query.message.edit_text("✅ **File sent successfully!**\n\nCheck your PM for the movie file.")
+            except UserIsBlocked:
+                await query.message.edit_text("❌ **Can't send file**\n\nPlease start the bot in PM first.")
+            except Exception as e:
+                logger.error(f"Error sending file: {e}")
+                await query.message.edit_text("❌ **Error sending file**\n\nPlease try again later.")
+                
+        except Exception as e:
+            logger.error(f"Error in no_subs handler: {e}")
+    
+    elif query.data.startswith("dl_sub#"):
+        try:
+            _, user_id, file_id, subtitle_index, language, movie_name = query.data.split("#", 5)
+            if int(user_id) != query.from_user.id:
+                return await query.answer("This is not for you!", show_alert=True)
+            
+            subtitle_index = int(subtitle_index)
+            
+            # Get stored subtitles
+            subtitles = temp.SUBTITLE_RESULTS.get(f"{user_id}_{file_id}_{language}", [])
+            if not subtitles or subtitle_index >= len(subtitles):
+                return await query.answer("Subtitle not found. Please search again.", show_alert=True)
+            
+            selected_subtitle = subtitles[subtitle_index]
+            
+            await query.message.edit_text(
+                "📥 **Downloading subtitle...**\n\n"
+                f"🎬 **Movie:** {movie_name}\n"
+                f"📄 **Subtitle:** {selected_subtitle['title']}\n"
+                f"🌐 **Language:** {LANGUAGE_MAPPING.get(language, {}).get('name', language)}\n"
+                f"🔗 **Source:** {selected_subtitle['source']}"
+            )
+            
+            subtitle_handler = SubtitleHandler()
+            subtitle_content = None
+            tried_sources = []
+            
+            # Try the selected subtitle first
+            try:
+                subtitle_content = await subtitle_handler.download_subtitle(
+                    selected_subtitle['download_url'], 
+                    selected_subtitle['source'],
+                    selected_subtitle,
+                    language,
+                    movie_name
+                )
+                tried_sources.append(selected_subtitle['source'])
+            except Exception as e:
+                print(f"[DOWNLOAD] Failed to download from {selected_subtitle['source']}: {e}")
+            
+            # If first subtitle failed, try other available subtitles
+            if not subtitle_content and len(subtitles) > 1:
+                print(f"[DOWNLOAD] First subtitle failed, trying {len(subtitles)-1} other sources...")
+                for i, subtitle in enumerate(subtitles):
+                    if i == subtitle_index or subtitle['source'] in tried_sources:
+                        continue  # Skip the already tried subtitle
+                    
+                    try:
+                        print(f"[DOWNLOAD] Trying subtitle from {subtitle['source']}: {subtitle['title']}")
+                        subtitle_content = await subtitle_handler.download_subtitle(
+                            subtitle['download_url'], 
+                            subtitle['source'],
+                            subtitle,
+                            language,
+                            movie_name
+                        )
+                        if subtitle_content:
+                            print(f"[DOWNLOAD] Successfully downloaded from {subtitle['source']}")
+                            # Update the selected subtitle info for display
+                            selected_subtitle = subtitle
+                            break
+                        tried_sources.append(subtitle['source'])
+                    except Exception as e:
+                        print(f"[DOWNLOAD] Failed to download from {subtitle['source']}: {e}")
+                        tried_sources.append(subtitle['source'])
+            
+            try:
+                if subtitle_content:
+                    # Create subtitle file
+                    import tempfile
+                    import os
+                    
+                    subtitle_filename = f"{movie_name}_{language}.srt"
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False, encoding='utf-8') as temp_file:
+                        temp_file.write(subtitle_content)
+                        temp_subtitle_path = temp_file.name
+                    
+                    try:
+                        # Send subtitle file
+                        await client.send_document(
+                            chat_id=query.from_user.id,
+                            document=temp_subtitle_path,
+                            file_name=subtitle_filename,
+                            caption=f"📄 **Subtitle File**\n\n"
+                                   f"🎬 **Movie:** {movie_name}\n"
+                                   f"🌐 **Language:** {LANGUAGE_MAPPING.get(language, {}).get('flag', '🏳️')} {LANGUAGE_MAPPING.get(language, {}).get('name', language)}\n"
+                                   f"🔗 **Source:** {selected_subtitle['source']}"
+                        )
+                        
+                        # Now send the movie file
+                        files_ = await get_file_details(file_id)
+                        if files_:
+                            files = files_[0]
+                            title = files.file_name
+                            f_caption = f"{title}"
+                            
+                            if CUSTOM_FILE_CAPTION:
+                                try:
+                                    f_caption = CUSTOM_FILE_CAPTION.format(
+                                        mention=query.from_user.mention, 
+                                        file_name=title or '', 
+                                        file_size=get_size(files.file_size) or '', 
+                                        file_caption=f_caption or ''
+                                    )
+                                except Exception as e:
+                                    logger.exception(e)
+                            
+                            await client.send_cached_media(
+                                chat_id=query.from_user.id, 
+                                file_id=file_id, 
+                                caption=f_caption, 
+                                protect_content=False
+                            )
+                            
+                            await query.message.edit_text(
+                                "✅ **Download Complete!**\n\n"
+                                f"🎬 **Movie:** {movie_name}\n"
+                                f"📄 **Subtitle:** Downloaded and sent\n"
+                                f"🎥 **Movie File:** Sent to your PM\n\n"
+                                f"Enjoy watching with subtitles! 🍿"
+                            )
+                    finally:
+                        # Clean up temp file
+                        try:
+                            os.unlink(temp_subtitle_path)
+                        except:
+                            pass
+                            
+                else:
+                    if len(tried_sources) > 1:
+                        await query.message.edit_text(
+                            "❌ **All Downloads Failed**\n\n"
+                            f"Sorry, I tried downloading from {len(tried_sources)} sources but all failed:\n"
+                            f"• {', '.join(tried_sources)}\n\n"
+                            f"The subtitle sources might be temporarily unavailable."
+                        )
+                    else:
+                        await query.message.edit_text(
+                            "❌ **Download Failed**\n\n"
+                            f"Sorry, I couldn't download the subtitle file from {tried_sources[0] if tried_sources else 'unknown source'}.\n\n"
+                            f"The source might be unavailable."
+                        )
+                    
+            finally:
+                await subtitle_handler.close_session()
+                
+        except Exception as e:
+            logger.error(f"Error downloading subtitle: {e}")
+            await query.message.edit_text(
+                "❌ **Error occurred**\n\n"
+                f"Sorry, there was an error downloading the subtitle. Please try again."
+            )
+    
+    elif query.data == "subtitle_help":
+        subtitle_help_text = """
+🎬 **Subtitle Bot Features**
+
+**Commands:**
+• `/subtitle movie name` - Search for movie subtitles
+• `/subtitle_help` - Show this help
+
+**How to use:**
+1. Send `/subtitle movie name`
+2. Select the correct movie from the list
+3. Choose your preferred language
+4. Download the subtitle file
+
+**Supported Languages:**
+🇺🇸 English | 🇪🇸 Spanish | 🇫🇷 French | 🇩🇪 German
+🇮🇹 Italian | 🇵🇹 Portuguese | 🇷🇺 Russian | 🇯🇵 Japanese
+🇰🇷 Korean | 🇨🇳 Chinese | 🇦🇷 Arabic | 🇮🇳 Hindi
+🇮🇳 Tamil | 🇱🇰 Sinhala
+
+**Features:**
+✅ 100% Free - No daily limits
+✅ Multiple subtitle sources
+✅ Automatic fallback
+✅ Proper SRT format
+✅ Multiple languages
+
+**Example:**
+`/subtitle Inception 2010`
+`/subtitle The Dark Knight`
+`/subtitle Avatar 2009`
+"""
+        buttons = [[
+            InlineKeyboardButton('✘ Cʟᴏꜱᴇ', 'close_data'),
+            InlineKeyboardButton('« Bᴀᴄᴋ', 'help')           
+        ]]
+        await query.edit_message_media(InputMediaPhoto(random.choice(PICS), subtitle_help_text, enums.ParseMode.HTML), reply_markup=InlineKeyboardMarkup(buttons))
 
 
 

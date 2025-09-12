@@ -2,7 +2,7 @@ import re, os, json, base64, logging
 from pyrogram import filters, Client, enums
 from pyrogram.errors.exceptions.bad_request_400 import ChannelInvalid, UsernameInvalid, UsernameNotModified
 from info import ADMINS, LOG_CHANNEL, FILE_STORE_CHANNEL, PUBLIC_FILE_STORE
-from database.ia_filterdb import unpack_new_file_id
+from database.simple_db import unpack_new_file_id
 from utils import temp
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,8 @@ async def gen_link_batch(bot, message):
     if len(links) != 3:
         return await message.reply("Use correct format.\nExample <code>/batch https://t.me/TeamEvamaria/10 https://t.me/TeamEvamaria/20</code>.")
     cmd, first, last = links
-    regex = re.compile("(https://)?(t\.me/|telegram\.me/|telegram\.dog/)(c/)?(\d+|[a-zA-Z_0-9]+)/(\d+)$")
-    match = regex.match(first)
+    regex = re.compile(r"(https://)?(t\.me/|telegram\.me/|telegram\.dog/)(c/)?(\d+|[a-zA-Z_0-9]+)/(\d+)$")
+    match = regex.search(first.strip())  # Use search instead of match and strip whitespace
     if not match:
         return await message.reply('Invalid link')
     f_chat_id = match.group(4)
@@ -49,7 +49,7 @@ async def gen_link_batch(bot, message):
     if f_chat_id.isnumeric():
         f_chat_id  = int(("-100" + f_chat_id))
 
-    match = regex.match(last)
+    match = regex.search(last.strip())  # Use search instead of match and strip whitespace
     if not match:
         return await message.reply('Invalid link')
     l_chat_id = match.group(4)

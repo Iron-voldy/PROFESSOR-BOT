@@ -1,10 +1,38 @@
 import motor.motor_asyncio
-from info import DATABASE_NAME, DATABASE_URL, IMDB, IMDB_TEMPLATE, MELCOW_NEW_USERS, P_TTI_SHOW_OFF, SINGLE_BUTTON, SPELL_CHECK_REPLY, PROTECT_CONTENT, MAX_RIST_BTNS, IMDB_DELET_TIME                  
+from info import DATABASE_NAME, DATABASE_URL, DATABASE_URL_FALLBACK, IMDB, IMDB_TEMPLATE, MELCOW_NEW_USERS, P_TTI_SHOW_OFF, SINGLE_BUTTON, SPELL_CHECK_REPLY, PROTECT_CONTENT, MAX_RIST_BTNS, IMDB_DELET_TIME                  
 
 class Database:
     
-    def __init__(self, uri, database_name):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+    def __init__(self, uri, database_name, fallback_uri=None):
+        # Configure shorter timeouts for faster failure detection
+        self.uri = uri
+        self.fallback_uri = fallback_uri or DATABASE_URL_FALLBACK
+        self.database_name = database_name
+        
+        # Try primary connection first
+        try:
+            self._client = motor.motor_asyncio.AsyncIOMotorClient(
+                uri,
+                serverSelectionTimeoutMS=5000,  # 5 seconds instead of 30
+                socketTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                maxPoolSize=1  # Reduce connection pool for faster startup
+            )
+            print("Using primary MongoDB connection")
+        except Exception as e:
+            print(f"Primary MongoDB connection failed: {e}")
+            print("Trying fallback MongoDB connection...")
+            
+            # Use fallback connection
+            self._client = motor.motor_asyncio.AsyncIOMotorClient(
+                self.fallback_uri,
+                serverSelectionTimeoutMS=5000,
+                socketTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                maxPoolSize=1
+            )
+            print("Using fallback MongoDB connection")
+        
         self.db = self._client[database_name]
         self.col = self.db.users
         self.grp = self.db.groups
@@ -79,11 +107,16 @@ class Database:
         await self.grp.delete_many({'id': int(chat_id)})
 
     async def get_banned(self):
-        users = self.col.find({'ban_status.is_banned': True})
-        chats = self.grp.find({'chat_status.is_disabled': True})
-        b_chats = [chat['id'] async for chat in chats]
-        b_users = [user['id'] async for user in users]
-        return b_users, b_chats
+        try:
+            users = self.col.find({'ban_status.is_banned': True})
+            chats = self.grp.find({'chat_status.is_disabled': True})
+            b_chats = [chat['id'] async for chat in chats]
+            b_users = [user['id'] async for user in users]
+            return b_users, b_chats
+        except Exception as e:
+            print(f"MongoDB connection error in get_banned: {e}")
+            # Return empty lists if DB is unavailable
+            return [], []
     
 
 

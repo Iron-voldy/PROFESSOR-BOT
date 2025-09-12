@@ -31,7 +31,9 @@ class temp(object):
     GP_BUTTONS = {}
     PM_BUTTONS = {}
     PM_SPELL = {}
+    SUBTITLE_RESULTS = {}
     GP_SPELL = {}
+    PM_SEARCH_RESULTS = {}
 
 async def is_subscribed(bot, query):
     try:
@@ -143,17 +145,31 @@ __license__ = "GNU GENERAL PUBLIC LICENSE V2"
 __copyright__ = "Copyright (C) 2023-present MrMKN <https://github.com/MrMKN>"
 
 async def search_gagala(text):
-    usr_agent = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/61.0.3163.100 Safari/537.36'
-        }
-    text = text.replace(" ", '+')
-    url = f'https://www.google.com/search?q={text}'
-    response = requests.get(url, headers=usr_agent)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
-    titles = soup.find_all( 'h3' )
-    return [title.getText() for title in titles]
+    try:
+        usr_agent = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/91.0.4472.124 Safari/537.36'
+            }
+        text = text.replace(" ", '+')
+        url = f'https://www.google.com/search?q={text}'
+        
+        # Use aiohttp for async requests with timeout
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.get(url, headers=usr_agent, ssl=False) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    soup = BeautifulSoup(html, 'html.parser')
+                    titles = soup.find_all('h3')
+                    return [title.getText() for title in titles[:10]]  # Limit results
+                else:
+                    logger.warning(f"Google search returned status: {response.status}")
+                    return []
+    except asyncio.TimeoutError:
+        logger.warning("Google search timed out")
+        return []
+    except Exception as e:
+        logger.error(f"Error in Google search: {e}")
+        return []
 
 
 async def get_settings(group_id):

@@ -1,15 +1,12 @@
+"""
+Simplified database module using direct Motor/PyMongo
+"""
 import logging
-from struct import pack
 import re
-import base64
-import asyncio
 import time
-from pyrogram.file_id import FileId
-from pymongo.errors import DuplicateKeyError, AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError
-from umongo import Instance, Document, fields
-from umongo.frameworks import MotorAsyncIOInstance
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from marshmallow.exceptions import ValidationError
+from pymongo.errors import DuplicateKeyError, AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError
 from info import FILE_DB_URL, FILE_DB_NAME, COLLECTION_NAME, MAX_RIST_BTNS
 
 logger = logging.getLogger(__name__)
@@ -19,80 +16,23 @@ logger.setLevel(logging.INFO)
 search_cache = {}
 CACHE_EXPIRY = 300  # 5 minutes cache
 
-
-# Configure MongoDB client with increased timeout settings for reliability
+# Configure MongoDB client
 client = AsyncIOMotorClient(
     FILE_DB_URL,
-    serverSelectionTimeoutMS=30000,   # 30 seconds - more time for server selection
-    connectTimeoutMS=30000,           # 30 seconds - more time for connection
-    socketTimeoutMS=60000,           # 60 seconds - more time for queries
-    maxPoolSize=10,                  # Reasonable concurrent connections
-    minPoolSize=2,                   # Minimum connections ready
-    maxIdleTimeMS=300000,            # 5 minutes - longer idle time
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=30000,
+    socketTimeoutMS=60000,
+    maxPoolSize=10,
+    minPoolSize=2,
+    maxIdleTimeMS=300000,
     retryWrites=True,
     retryReads=True
 )
 db = client[FILE_DB_NAME]
-instance = MotorAsyncIOInstance(db)
+collection = db[COLLECTION_NAME]
 
-@instance.register
-class Media(Document):
-    file_id = fields.StrField(attribute='_id')
-    file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(required=True)
-    file_size = fields.IntField(required=True)
-    file_type = fields.StrField(allow_none=True)
-    mime_type = fields.StrField(allow_none=True)
-    caption = fields.StrField(allow_none=True)
-
-    class Meta:
-        collection_name = COLLECTION_NAME
-
-
-async def save_file(media):
-    file_id, file_ref = unpack_new_file_id(media.file_id)
-    file_name = re.sub(r"@\w+|(_|\-|\.|\+)", " ", str(media.file_name))
-    try:
-        file = Media(
-            file_id=file_id,
-            file_ref=file_ref,
-            file_name=file_name,
-            file_size=media.file_size,
-            file_type=media.file_type,
-            mime_type=media.mime_type
-        )
-    except ValidationError:
-        logger.exception('Error Occurred While Saving File In Database')
-        return False, 2
-    
-    # Retry logic for database operations
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            await file.commit()
-            logger.info(str(getattr(media, "file_name", "NO FILE NAME")) + " is saved in database")
-            return True, 1
-        except DuplicateKeyError:      
-            logger.warning(str(getattr(media, "file_name", "NO FILE NAME")) + " is already saved in database")
-            return False, 0
-        except (AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError) as e:
-            logger.warning(f"Database connection error on attempt {attempt + 1}: {e}")
-            if attempt < max_retries - 1:
-                # Wait before retrying (exponential backoff)
-                wait_time = 2 ** attempt
-                logger.info(f"Retrying in {wait_time} seconds...")
-                await asyncio.sleep(wait_time)
-                continue
-            else:
-                logger.error(f"Failed to save file after {max_retries} attempts")
-                return False, 2
-        except Exception as e:
-            logger.exception(f'Unexpected error while saving file: {e}')
-            return False, 2
-
-
-
-async def get_search_results(query, file_type=None, max_results=(MAX_RIST_BTNS), offset=0, filter=False):
+async def get_search_results(query, file_type=None, max_results=MAX_RIST_BTNS, offset=0, filter=False):
+    """Search for movies in the database"""
     start_time = time.time()
     query = query.strip()
     
@@ -107,41 +47,47 @@ async def get_search_results(query, file_type=None, max_results=(MAX_RIST_BTNS),
             logger.info(f"Cache hit for query '{query}' - returned in {time.time() - start_time:.2f}s")
             return cached_data
     
-    if not query: raw_pattern = '.'
-    elif ' ' not in query: raw_pattern = r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
-    else: raw_pattern = query.replace(' ', r'.*[\s\.\+\-_]')
+    # Build search pattern
+    if not query:
+        raw_pattern = '.'
+    elif ' ' not in query:
+        raw_pattern = r'(\b|[\.\+\-_])' + re.escape(query) + r'(\b|[\.\+\-_])'
+    else:
+        raw_pattern = re.escape(query).replace(r'\ ', r'.*[\s\.\+\-_]')
     
-    try: 
-        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
+    try:
+        regex = {"$regex": raw_pattern, "$options": "i"}
         logger.info(f"Search pattern for '{query}': {raw_pattern}")
     except Exception as e:
         logger.error(f"Regex compilation failed for '{query}': {e}")
         return [], '', 0
         
+    # Build filter
     filter_dict = {'file_name': regex}
-    if file_type: filter_dict['file_type'] = file_type
+    if file_type:
+        filter_dict['file_type'] = file_type
     
     logger.info(f"Search filter: {filter_dict}")
 
-    # Reduced retry logic for faster response
+    # Retry logic for database operations
     max_retries = 2
     for attempt in range(max_retries):
         try:
             # Get total count first
-            total_results = await Media.count_documents(filter_dict)
+            total_results = await collection.count_documents(filter_dict)
             logger.info(f"Found {total_results} total documents matching '{query}'")
             
             if total_results == 0:
                 logger.info(f"No results found for query: '{query}' with strict pattern. Trying fallback search...")
                 
                 # Try a more lenient search pattern
-                fallback_pattern = f".*{re.escape(query)}.*"
-                fallback_regex = re.compile(fallback_pattern, flags=re.IGNORECASE)
-                fallback_filter = {'file_name': fallback_regex}
-                if file_type: fallback_filter['file_type'] = file_type
+                fallback_pattern = {"$regex": re.escape(query), "$options": "i"}
+                fallback_filter = {'file_name': fallback_pattern}
+                if file_type:
+                    fallback_filter['file_type'] = file_type
                 
-                total_results = await Media.count_documents(fallback_filter)
-                logger.info(f"Fallback search found {total_results} results with pattern: {fallback_pattern}")
+                total_results = await collection.count_documents(fallback_filter)
+                logger.info(f"Fallback search found {total_results} results")
                 
                 if total_results == 0:
                     return [], '', 0
@@ -150,12 +96,11 @@ async def get_search_results(query, file_type=None, max_results=(MAX_RIST_BTNS),
                 filter_dict = fallback_filter
             
             next_offset = offset + max_results
-            if next_offset > total_results: next_offset = ''
+            if next_offset > total_results:
+                next_offset = ''
 
-            # Get the files using the original method that works
-            cursor = Media.find(filter_dict)
-            cursor.sort('$natural', -1)
-            cursor.skip(offset).limit(max_results)
+            # Get the files
+            cursor = collection.find(filter_dict).sort('_id', -1).skip(offset).limit(max_results)
             files = await cursor.to_list(length=max_results)
             
             # Cache the results
@@ -174,7 +119,7 @@ async def get_search_results(query, file_type=None, max_results=(MAX_RIST_BTNS),
         except (AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError) as e:
             logger.warning(f"Database connection error on search attempt {attempt + 1}: {e}")
             if attempt < max_retries - 1:
-                wait_time = 1  # Reduced wait time
+                wait_time = 1
                 await asyncio.sleep(wait_time)
                 continue
             else:
@@ -184,15 +129,15 @@ async def get_search_results(query, file_type=None, max_results=(MAX_RIST_BTNS),
             logger.exception(f'Unexpected error during search: {e}')
             return [], '', 0
 
-
 async def get_file_details(query):
-    filter = {'file_id': query}
+    """Get file details by file_id"""
+    filter_dict = {'_id': query}
     
     # Retry logic for database operations
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            cursor = Media.find(filter)
+            cursor = collection.find(filter_dict)
             filedetails = await cursor.to_list(length=1)
             return filedetails
         except (AutoReconnect, NetworkTimeout, ServerSelectionTimeoutError) as e:
@@ -208,8 +153,19 @@ async def get_file_details(query):
             logger.exception(f'Unexpected error getting file details: {e}')
             return []
 
+# For backward compatibility, create a simple Media-like object
+class MediaDocument:
+    def __init__(self, data):
+        for key, value in data.items():
+            if key == '_id':
+                self.file_id = value
+            else:
+                setattr(self, key, value)
 
 def encode_file_id(s: bytes) -> str:
+    """Encode file_id for Telegram"""
+    import base64
+    from struct import pack
     r = b""
     n = 0
     for i in s + bytes([22]) + bytes([4]):
@@ -222,13 +178,16 @@ def encode_file_id(s: bytes) -> str:
             r += bytes([i])
     return base64.urlsafe_b64encode(r).decode().rstrip("=")
 
-
 def encode_file_ref(file_ref: bytes) -> str:
+    """Encode file_ref for Telegram"""
+    import base64
     return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
-
 
 def unpack_new_file_id(new_file_id):
     """Return file_id, file_ref"""
+    from pyrogram.file_id import FileId
+    from struct import pack
+    
     decoded = FileId.decode(new_file_id)
     file_id = encode_file_id(
         pack(
@@ -242,12 +201,32 @@ def unpack_new_file_id(new_file_id):
     file_ref = encode_file_ref(decoded.file_reference)
     return file_id, file_ref
 
+async def save_file(media):
+    """Save file to database"""
+    file_id, file_ref = unpack_new_file_id(media.file_id)
+    file_name = re.sub(r"@\w+|(_|\-|\.|\+)", " ", str(media.file_name))
+    try:
+        file_data = {
+            "_id": file_id,
+            "file_ref": file_ref,
+            "file_name": file_name,
+            "file_size": media.file_size,
+            "file_type": media.mime_type.split("/")[0],
+            "mime_type": media.mime_type
+        }
+        
+        await collection.replace_one({"_id": file_id}, file_data, upsert=True)
+        logger.info(f"File saved: {file_name}")
+        return True, 0
+    except Exception as e:
+        logger.error(f"Error saving file: {e}")
+        return False, 2
 
 async def ensure_indexes():
     """Ensure database indexes are created for better performance"""
     try:
         # Create text index on file_name for better search performance
-        await Media.collection.create_index("file_name")
+        await collection.create_index("file_name")
         logger.info("Database indexes ensured successfully")
         return True
     except Exception as e:

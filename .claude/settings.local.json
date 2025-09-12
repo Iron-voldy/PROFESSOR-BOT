@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:umongo.readthedocs.io)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(grep:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

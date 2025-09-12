@@ -2,15 +2,17 @@
 pyrofork
 tgcrypto==1.2.5
 aiofiles==22.1.0     
-aiohttp==3.10.11
-requests==2.30.0
+aiohttp>=3.8.0
+requests==2.31.0
 bs4==0.0.1
+beautifulsoup4==4.12.2
+httpx==0.13.3
 
 #---database---#
 pymongo==4.11.1
 dnspython==2.7.0
 marshmallow==3.20.1
-umongo==3.1.0
+umongo==3.0.1
 motor==3.7.0   
 
 #---ytdl----#
@@ -21,15 +23,18 @@ yt-dlp==2023.2.17
 #---imdb---#
 cinemagoer==2023.5.1
 
+#---subtitles---#
+
 #---others----#
-opencv-python-headless==4.7.0.68
+opencv-python-headless
 googletrans==3.1.0a0
+deep-translator
 telegraph==2.2.0
 python-dotenv==0.21.1
 gTTS==2.3.1
-Pillow==10.2.0
+Pillow>=10.0.0
 psutil==5.9.4
-NumPy==1.26.2
+numpy
 wheel
 ujson
 wget
