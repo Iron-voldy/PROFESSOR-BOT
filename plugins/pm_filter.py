@@ -699,6 +699,8 @@ async def download_movie_with_subtitles(client, callback_query):
                 # Subtitles were found but all downloads failed - no real content available
                 sources_tried = ", ".join(tried_sources) if tried_sources else "unknown sources"
                 print(f"[SUBTITLE] All {len(tried_sources)} subtitle downloads failed - no fake content will be provided")
+                # Extract file_id before using in f-string to avoid syntax error
+                file_id_val = selected_file.get('_id', '')
                 await callback_query.message.edit_text(
                     f"❌ **All Subtitle Downloads Failed**\n\n"
                     f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
@@ -709,7 +711,7 @@ async def download_movie_with_subtitles(client, callback_query):
                     f"**What would you like to do?**",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
-                        [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{selected_file.get('_id', '')}')],
+                        [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
                         [InlineKeyboardButton("🔄 Try Different Language", callback_data=f'back_to_movies#{file_key}')],
                         [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
                     ])
@@ -733,14 +735,16 @@ async def download_movie_with_subtitles(client, callback_query):
                     f"This language may not be available for this movie.\n\n"
                     f"**What would you like to do?**"
                 )
-            
+
+            # Extract file_id before using in f-string to avoid syntax error
+            file_id_val = selected_file.get('_id', '')
             btn = [
                 [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
-                [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{selected_file.get('_id', '')}')],
+                [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
                 [InlineKeyboardButton("🔄 Try Different Language", callback_data=f'back_to_movies#{file_key}')],
                 [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
             ]
-                
+
             await callback_query.message.edit_text(message, reply_markup=InlineKeyboardMarkup(btn))
         
     except Exception as e:
@@ -797,17 +801,19 @@ async def back_to_main_languages(client, callback_query):
             f"📊 **Size:** `{get_size(selected_file.get('file_size', 0))}`\n\n"
             f"🌐 **Choose subtitle language or download without subtitles:**"
         )
-        
+
+        # Extract file_id before using in f-string to avoid syntax error
+        file_id_val = selected_file.get('_id', '')
         # Main language buttons
         btn = [
             [InlineKeyboardButton("🇬🇧 English", callback_data=f'download_with_sub#{file_key}#en')],
-            [InlineKeyboardButton("🇪🇸 Spanish", callback_data=f'download_with_sub#{file_key}#es')], 
+            [InlineKeyboardButton("🇪🇸 Spanish", callback_data=f'download_with_sub#{file_key}#es')],
             [InlineKeyboardButton("🇫🇷 French", callback_data=f'download_with_sub#{file_key}#fr')],
             [InlineKeyboardButton("🇩🇪 German", callback_data=f'download_with_sub#{file_key}#de')],
             [InlineKeyboardButton("🇮🇳 Hindi", callback_data=f'download_with_sub#{file_key}#hi')],
             [InlineKeyboardButton("🇱🇰 Sinhala", callback_data=f'download_with_sub#{file_key}#si')],
             [InlineKeyboardButton("🌐 More Languages", callback_data=f'more_languages#{file_key}')],
-            [InlineKeyboardButton("❌ No Subtitles", callback_data=f'download_only#{selected_file.get('_id', '')}')],
+            [InlineKeyboardButton("❌ No Subtitles", callback_data=f'download_only#{file_id_val}')],
             [InlineKeyboardButton("◀️ Back to Movies", callback_data=f'back_to_movies#{file_key}')]
         ]
         
