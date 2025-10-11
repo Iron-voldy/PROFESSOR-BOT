@@ -522,19 +522,19 @@ class SubtitleHandler:
         """Search subtitles using OpenSubtitles.org API"""
         try:
             session = await self.get_session()
-            
+
             # Clean movie name
             clean_name = re.sub(r'[^\w\s]', ' ', movie_name).strip()
-            
+
             print(f"[OPENSUBTITLES_API] Searching for: {clean_name} in {language}")
-            
+
             # OpenSubtitles API headers
             headers = {
                 'User-Agent': 'ProfessorBot v1.0',
                 'Content-Type': 'application/json',
                 'Api-Key': OPENSUBTITLES_API_KEY
             }
-            
+
             # Search endpoint
             url = 'https://api.opensubtitles.com/api/v1/subtitles'
             params = {
@@ -542,27 +542,33 @@ class SubtitleHandler:
                 'languages': language,
                 'type': 'movie'
             }
-            
+
             async with session.get(url, headers=headers, params=params) as response:
                 print(f"[OPENSUBTITLES_API] Response status: {response.status}")
-                
+
                 if response.status == 200:
                     data = await response.json()
                     subtitles_data = data.get('data', [])
-                    
+
                     subtitles = []
-                    for sub in subtitles_data[:3]:  # Limit to 3
+                    for sub in subtitles_data[:10]:  # Check more results to find matching language
                         attributes = sub.get('attributes', {})
                         release = attributes.get('release', clean_name)
+                        sub_language = attributes.get('language', '')
                         files = attributes.get('files', [{}])
-                        
+
+                        # Validate language matches
+                        if sub_language and sub_language.lower() != language.lower():
+                            print(f"[OPENSUBTITLES_API] Skipping subtitle - wrong language: {sub_language} (wanted {language})")
+                            continue
+
                         if files:
                             file_id = files[0].get('file_id')
-                            
+
                             if file_id:
                                 # Create proper download URL for OpenSubtitles API
                                 download_url = f"https://api.opensubtitles.com/api/v1/download"
-                                
+
                                 subtitles.append({
                                     'title': release,
                                     'source': 'opensubtitles_api',
@@ -572,18 +578,22 @@ class SubtitleHandler:
                                     'rating': '8.5',
                                     'downloads': '3000'
                                 })
-                    
+
+                                # Stop after finding 3 matching subtitles
+                                if len(subtitles) >= 3:
+                                    break
+
                     if subtitles:
                         print(f"[OPENSUBTITLES_API] Found {len(subtitles)} real subtitles")
                         return subtitles
                     else:
-                        print(f"[OPENSUBTITLES_API] No subtitles found")
+                        print(f"[OPENSUBTITLES_API] No subtitles found for language: {language}")
                 else:
                     error_text = await response.text()
                     print(f"[OPENSUBTITLES_API] API Error: {response.status} - {error_text}")
-            
+
             return []
-            
+
         except Exception as e:
             print(f"[OPENSUBTITLES_API] Error: {e}")
             return []
