@@ -654,7 +654,7 @@ async def download_movie_with_subtitles(client, callback_query):
                 subtitle_filename = f"{movie_title}_{language}.srt"
                 subtitle_file = io.BytesIO(subtitle_content.encode('utf-8'))
                 subtitle_file.name = subtitle_filename
-                
+
                 await callback_query.message.reply_document(
                     subtitle_file,
                     caption=f"🎬📄 **Subtitle File**\n\n"
@@ -662,7 +662,7 @@ async def download_movie_with_subtitles(client, callback_query):
                            f"🌐 **Language:** `{language.upper()}`\n"
                            f"🔗 **Source:** `{selected_subtitle['source']}`"
                 )
-                
+
                 # Now send the movie file
                 await callback_query.message.edit_text(
                     f"✅ **Subtitle sent! Now sending movie...**\n\n"
@@ -671,11 +671,11 @@ async def download_movie_with_subtitles(client, callback_query):
                     f"🌐 **Subtitle:** `{language.upper()}`\n\n"
                     f"⬇️ **Movie download starting...**"
                 )
-                
+
                 # Send movie file using the same logic as pmfile handler
                 title = selected_file.get('file_name', 'Unknown')
                 f_caption = title
-                
+
                 try:
                     if AUTH_CHANNEL and not await is_subscribed(client, callback_query):
                         return await callback_query.answer(url=f"https://t.me/{temp.U_NAME}?start=pmfile_{selected_file.get('_id', '')}")
@@ -683,65 +683,96 @@ async def download_movie_with_subtitles(client, callback_query):
                         # Use the actual file_id from the file object
                         actual_file_id = selected_file.get('_id', '')
                         print(f"[DOWNLOAD_WITH_SUB] Using actual file_id: {actual_file_id}")
-                        
+
                         await client.send_cached_media(
-                            chat_id=callback_query.from_user.id, 
-                            file_id=actual_file_id, 
-                            caption=f_caption, 
+                            chat_id=callback_query.from_user.id,
+                            file_id=actual_file_id,
+                            caption=f_caption,
                             protect_content=PROTECT_CONTENT
                         )
                         print(f"[DOWNLOAD] Movie with subtitle sent successfully: {title}")
-                        
+
                 except Exception as e:
                     await callback_query.answer(f"⚠️ Error sending movie: {e}", show_alert=True)
                     print(f"[ERROR] Failed to send movie: {e}")
             else:
-                # Subtitles were found but all downloads failed - no real content available
+                # Subtitles were found but all downloads failed - provide web links
                 sources_tried = ", ".join(tried_sources) if tried_sources else "unknown sources"
-                print(f"[SUBTITLE] All {len(tried_sources)} subtitle downloads failed - no fake content will be provided")
+                print(f"[SUBTITLE] All {len(tried_sources)} subtitle downloads failed - providing web links")
+
+                # Get web links for manual download
+                web_links = subtitle_handler.get_subtitle_web_links(movie_filename, language)
+
                 # Extract file_id before using in f-string to avoid syntax error
                 file_id_val = selected_file.get('_id', '')
+
+                # Create buttons for web links
+                web_link_buttons = [
+                    [InlineKeyboardButton("🔗 OpenSubtitles.org", url=web_links['opensubtitles'])],
+                    [InlineKeyboardButton("🔗 Subdl.com", url=web_links['subdl'])],
+                    [InlineKeyboardButton("🔗 Subscene.com", url=web_links['subscene'])],
+                    [InlineKeyboardButton("🔗 YifySubtitles.ch", url=web_links['yifysubtitles'])],
+                    [InlineKeyboardButton("─────────────────", callback_data='separator')],
+                    [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
+                    [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
+                    [InlineKeyboardButton("◀️ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
+                    [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
+                ]
+
                 await callback_query.message.edit_text(
-                    f"❌ **All Subtitle Downloads Failed**\n\n"
+                    f"❌ **Automatic Download Failed**\n\n"
                     f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
                     f"🌐 **Language:** `{language.upper()}`\n"
                     f"📊 **Sources tried:** {len(tried_sources)}\n\n"
-                    f"Tried downloading from: {sources_tried}\n"
-                    f"**No fake or sample subtitles will be provided.**\n\n"
-                    f"**What would you like to do?**",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
-                        [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
-                        [InlineKeyboardButton("🔄 Try Different Language", callback_data=f'back_to_movies#{file_key}')],
-                        [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
-                    ])
+                    f"**We tried:** {sources_tried}\n\n"
+                    f"🔗 **Manual Download Links:**\n"
+                    f"Click any link below to search and download subtitles manually:\n\n"
+                    f"✅ All links open the search for your movie in **{language.upper()}** language.\n"
+                    f"✅ Choose the subtitle that matches your movie version.\n"
+                    f"✅ Download and sync with your video player.\n\n"
+                    f"**Or try another option below:**",
+                    reply_markup=InlineKeyboardMarkup(web_link_buttons)
                 )
                     
         else:
-            # No subtitles found, provide helpful message
-            if language == 'si':
-                message = (
-                    f"❌ **No Sinhala subtitles found**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n\n"
-                    f"🇱🇰 **Sinhala subtitles are rare** for this movie.\n"
-                    f"🌐 **Try English subtitles instead** - they're more commonly available.\n\n"
-                    f"**What would you like to do?**"
-                )
-            else:
-                message = (
-                    f"❌ **No {language.upper()} subtitles found**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
-                    f"🌐 **Language:** `{language.upper()}`\n\n"
-                    f"This language may not be available for this movie.\n\n"
-                    f"**What would you like to do?**"
-                )
+            # No subtitles found in any API - provide web links for manual search
+            print(f"[SUBTITLE] No subtitles found in any API - providing web links")
+
+            # Get web links for manual download
+            web_links = subtitle_handler.get_subtitle_web_links(movie_filename, language)
 
             # Extract file_id before using in f-string to avoid syntax error
             file_id_val = selected_file.get('_id', '')
+
+            if language == 'si':
+                message = (
+                    f"❌ **No Sinhala Subtitles Found Automatically**\n\n"
+                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n\n"
+                    f"🇱🇰 **Sinhala subtitles are rare** for some movies.\n\n"
+                    f"🔗 **Try These Websites:**\n"
+                    f"Click the links below to search manually. You might find subtitles that our bot couldn't auto-download:\n\n"
+                    f"💡 **Tip:** Try English subtitles - they're more commonly available."
+                )
+            else:
+                message = (
+                    f"❌ **No {language.upper()} Subtitles Found Automatically**\n\n"
+                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
+                    f"🌐 **Language:** `{language.upper()}`\n\n"
+                    f"🔗 **Search These Subtitle Websites:**\n"
+                    f"Click any link below to search manually. Sometimes subtitles exist but can't be auto-downloaded:\n\n"
+                    f"✅ All links pre-search for your movie in **{language.upper()}**."
+                )
+
+            # Create buttons with web links first, then options
             btn = [
+                [InlineKeyboardButton("🔗 OpenSubtitles.org", url=web_links['opensubtitles'])],
+                [InlineKeyboardButton("🔗 Subdl.com", url=web_links['subdl'])],
+                [InlineKeyboardButton("🔗 Subscene.com", url=web_links['subscene'])],
+                [InlineKeyboardButton("🔗 YifySubtitles.ch", url=web_links['yifysubtitles'])],
+                [InlineKeyboardButton("─────────────────", callback_data='separator')],
                 [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
                 [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
-                [InlineKeyboardButton("🔄 Try Different Language", callback_data=f'back_to_movies#{file_key}')],
+                [InlineKeyboardButton("◀️ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
                 [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
             ]
 
@@ -831,6 +862,12 @@ async def cancel_download(client, callback_query):
         "❌ **Download cancelled by user.**\n\n"
         "You can start a new search anytime by sending a movie name."
     )
+
+# Separator handler (for UI separators - just acknowledge)
+@Client.on_callback_query(filters.regex(r'^separator$'))
+async def separator_handler(client, callback_query):
+    """Handle separator button clicks"""
+    await callback_query.answer("This is just a separator", show_alert=False)
 
 
 

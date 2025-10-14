@@ -60,7 +60,8 @@ class SubtitleHandler:
             tasks = [
                 self.search_subdl_api(clean_name, language),
                 self.search_opensubtitles_api(clean_name, language),
-                self.search_yts_subtitles(clean_name, language)
+                self.search_yts_subtitles(clean_name, language),
+                self.search_podnapisi(clean_name, language)
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -82,20 +83,11 @@ class SubtitleHandler:
             
             print(f"[SUBTITLE] Total found: {len(all_subtitles)} subtitles")
             
-            # If no real subtitles found, create a fallback entry
+            # Return only real subtitles - no fake/fallback entries
             if not all_subtitles:
-                print(f"[SUBTITLE] No real subtitles found, creating fallback")
-                lang_name = LANGUAGE_MAPPING.get(language, {'name': 'English'})['name']
-                all_subtitles = [{
-                    'title': f"{movie_name} - {lang_name} (Generated)",
-                    'source': 'fallback',
-                    'language': language,
-                    'download_url': f"https://example.com/fallback/{movie_name}.srt",
-                    'rating': '6.0',
-                    'downloads': '100'
-                }]
-            
-            return all_subtitles[:10]  # Return top 10 results
+                print(f"[SUBTITLE] No real subtitles found - returning empty list")
+
+            return all_subtitles[:10]  # Return top 10 real results
             
         except Exception as e:
             print(f"[SUBTITLE] Search error: {e}")
@@ -660,6 +652,82 @@ class SubtitleHandler:
             print(f"[REAL_SUB] YTS search error: {e}")
             return []
     
+    async def search_podnapisi(self, movie_name, language='en'):
+        """Search Podnapisi.net for subtitles using their free API"""
+        try:
+            session = await self.get_session()
+
+            # Clean movie name
+            clean_name = re.sub(r'[^\w\s]', ' ', movie_name).strip()
+
+            print(f"[PODNAPISI] Searching for: {clean_name} in {language}")
+
+            # Language mapping for Podnapisi
+            lang_map = {
+                'en': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it',
+                'pt': 'pt', 'ru': 'ru', 'ja': 'ja', 'ko': 'ko', 'ar': 'ar',
+                'hi': 'hi', 'si': 'si', 'ta': 'ta', 'zh': 'zh'
+            }
+
+            lang_code = lang_map.get(language, 'en')
+
+            # Podnapisi XML API endpoint
+            url = 'https://www.podnapisi.net/subtitles/search/advanced'
+            params = {
+                'keywords': clean_name,
+                'language': lang_code,
+                'movieType': 'movie'
+            }
+
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            }
+
+            async with session.get(url, params=params, headers=headers) as response:
+                print(f"[PODNAPISI] Response status: {response.status}")
+
+                if response.status == 200:
+                    html = await response.text()
+                    soup = BeautifulSoup(html, 'html.parser')
+
+                    # Find subtitle entries
+                    subtitle_links = soup.find_all('a', href=re.compile(r'/subtitles/'))
+                    subtitles = []
+
+                    for link in subtitle_links[:3]:  # Limit to 3
+                        try:
+                            href = link.get('href')
+                            title = link.get_text(strip=True) or clean_name
+
+                            if href and '/subtitles/' in href:
+                                # Extract subtitle ID
+                                sub_id = href.split('/')[-1]
+                                download_url = f"https://www.podnapisi.net{href}/download"
+
+                                subtitles.append({
+                                    'title': title,
+                                    'source': 'podnapisi',
+                                    'language': language,
+                                    'download_url': download_url,
+                                    'rating': '8.0',
+                                    'downloads': '2000'
+                                })
+                        except Exception as e:
+                            print(f"[PODNAPISI] Link parsing error: {e}")
+                            continue
+
+                    print(f"[PODNAPISI] Found {len(subtitles)} subtitles")
+                    return subtitles
+                else:
+                    print(f"[PODNAPISI] Search failed: {response.status}")
+
+            return []
+
+        except Exception as e:
+            print(f"[PODNAPISI] Error: {e}")
+            return []
+
     async def search_alternative_api(self, movie_name, language='en'):
         """Alternative API for subtitle search"""
         try:
@@ -692,12 +760,12 @@ class SubtitleHandler:
             return []
     
     async def download_subtitle(self, download_url, source, subtitle_info, language, movie_name):
-        """Download real subtitle from URL and return content"""
+        """Download real subtitle from URL and return content or None if failed"""
         try:
             session = await self.get_session()
-            
+
             print(f"[DOWNLOAD] Attempting real download from {source}: {download_url}")
-            
+
             # Handle different API sources
             if source == 'opensubtitles_api':
                 # OpenSubtitles API download
@@ -707,17 +775,17 @@ class SubtitleHandler:
                         'User-Agent': 'ProfessorBot v1.0',
                         'Api-Key': OPENSUBTITLES_API_KEY
                     }
-                    
+
                     # Create download request
                     download_data = {'file_id': file_id}
-                    
+
                     async with session.post(download_url, headers=headers, json=download_data) as response:
                         print(f"[DOWNLOAD] OpenSubtitles API response: {response.status}")
-                        
+
                         if response.status == 200:
                             data = await response.json()
                             download_link = data.get('link')
-                            
+
                             if download_link:
                                 # Download the actual subtitle file
                                 async with session.get(download_link) as file_response:
@@ -727,23 +795,23 @@ class SubtitleHandler:
                         else:
                             error_text = await response.text()
                             print(f"[DOWNLOAD] OpenSubtitles API Error: {error_text}")
-            
+
             elif source == 'subdl_api':
                 # Subdl API download - direct ZIP file
                 headers = {
                     'User-Agent': 'ProfessorBot v1.0',
                     'Accept': '*/*'
                 }
-                
+
                 async with session.get(download_url, headers=headers) as response:
                     print(f"[DOWNLOAD] Subdl response: {response.status}")
-                    
+
                     if response.status == 200:
                         content = await response.read()
                         return await self._process_subtitle_content(content, movie_name, language)
                     else:
                         print(f"[DOWNLOAD] Subdl download failed: {response.status}")
-            
+
             else:
                 # General download for other sources
                 headers = {
@@ -751,28 +819,28 @@ class SubtitleHandler:
                     'Accept': '*/*',
                     'Accept-Language': 'en-US,en;q=0.9'
                 }
-                
+
                 async with session.get(download_url, headers=headers, allow_redirects=True) as response:
                     print(f"[DOWNLOAD] General download response: {response.status}")
-                    
+
                     if response.status == 200:
                         content = await response.read()
                         return await self._process_subtitle_content(content, movie_name, language)
-            
-            # If we get here, the real download failed
-            print(f"[DOWNLOAD] Real subtitle download failed, creating fallback")
-            return self._create_intelligent_subtitle(movie_name, language)
-            
+
+            # If we get here, the real download failed - return None instead of fake subtitle
+            print(f"[DOWNLOAD] Real subtitle download failed, returning None")
+            return None
+
         except Exception as e:
             print(f"[DOWNLOAD] Download error: {e}")
-            print(f"[DOWNLOAD] Creating fallback subtitle")
-            return self._create_intelligent_subtitle(movie_name, language)
+            print(f"[DOWNLOAD] Returning None - no fake subtitle will be created")
+            return None
     
     async def _process_subtitle_content(self, content, movie_name, language):
-        """Process downloaded subtitle content"""
+        """Process downloaded subtitle content - returns content or None"""
         try:
             print(f"[PROCESS] Processing {len(content)} bytes of content")
-            
+
             # Handle ZIP files (common for subtitle downloads)
             if content[:4] == b'PK\x03\x04':  # ZIP file signature
                 print(f"[PROCESS] Processing ZIP file")
@@ -790,51 +858,85 @@ class SubtitleHandler:
                                 print(f"[PROCESS] ZIP contained invalid SRT content")
                 except Exception as e:
                     print(f"[PROCESS] ZIP extraction failed: {e}")
-            
+
             # Try to decode as direct SRT text
             try:
                 subtitle_content = content.decode('utf-8', errors='ignore')
-                
+
                 # Validate SRT format more thoroughly
                 if self._validate_srt_content(subtitle_content):
                     print(f"[PROCESS] SUCCESS: Real subtitle processed directly")
                     return subtitle_content
                 else:
                     print(f"[PROCESS] Content not valid SRT format")
-                    
+
             except UnicodeDecodeError:
                 print(f"[PROCESS] Failed to decode content as UTF-8")
-            
-            # If processing failed, create fallback
-            print(f"[PROCESS] Content processing failed, creating fallback")
-            return self._create_intelligent_subtitle(movie_name, language)
-            
+
+            # If processing failed, return None instead of fake subtitle
+            print(f"[PROCESS] Content processing failed, returning None")
+            return None
+
         except Exception as e:
             print(f"[PROCESS] Processing error: {e}")
-            return self._create_intelligent_subtitle(movie_name, language)
+            return None
     
     def _validate_srt_content(self, content):
         """Validate if content is a proper SRT subtitle file"""
         try:
             if not content or len(content.strip()) < 50:
                 return False
-            
+
             # Check for SRT time format
             if '-->' not in content:
                 return False
-            
+
             # Check for numbered sequences (SRT format requirement)
             lines = content.split('\n')
             has_numbers = any(line.strip().isdigit() for line in lines[:10])
-            
+
             # Check for time stamps
             has_timestamps = any('-->' in line for line in lines[:20])
-            
+
             # Must have both numbers and timestamps
             return has_numbers and has_timestamps
-            
+
         except Exception:
             return False
+
+    def get_subtitle_web_links(self, movie_name, language='en'):
+        """Generate web links for manual subtitle downloads"""
+        clean_name = self._clean_movie_name(movie_name)
+        search_query = quote_plus(clean_name)
+
+        # Language mapping for different sites
+        lang_map = {
+            'en': {'os': 'eng', 'subdl': 'english', 'subscene': 'english'},
+            'es': {'os': 'spa', 'subdl': 'spanish', 'subscene': 'spanish'},
+            'fr': {'os': 'fre', 'subdl': 'french', 'subscene': 'french'},
+            'de': {'os': 'ger', 'subdl': 'german', 'subscene': 'german'},
+            'hi': {'os': 'hin', 'subdl': 'hindi', 'subscene': 'hindi'},
+            'si': {'os': 'sin', 'subdl': 'sinhala', 'subscene': 'sinhala'},
+            'it': {'os': 'ita', 'subdl': 'italian', 'subscene': 'italian'},
+            'pt': {'os': 'por', 'subdl': 'portuguese', 'subscene': 'portuguese'},
+            'ru': {'os': 'rus', 'subdl': 'russian', 'subscene': 'russian'},
+            'ja': {'os': 'jpn', 'subdl': 'japanese', 'subscene': 'japanese'},
+            'ko': {'os': 'kor', 'subdl': 'korean', 'subscene': 'korean'},
+            'ar': {'os': 'ara', 'subdl': 'arabic', 'subscene': 'arabic'},
+            'ta': {'os': 'tam', 'subdl': 'tamil', 'subscene': 'tamil'},
+            'zh': {'os': 'chi', 'subdl': 'chinese', 'subscene': 'chinese'}
+        }
+
+        lang_codes = lang_map.get(language, {'os': 'eng', 'subdl': 'english', 'subscene': 'english'})
+
+        links = {
+            'opensubtitles': f"https://www.opensubtitles.org/en/search/sublanguageid-{lang_codes['os']}/moviename-{search_query}",
+            'subdl': f"https://subdl.com/s/{search_query}/{lang_codes['subdl']}",
+            'subscene': f"https://subscene.com/subtitles/searchbytitle?query={search_query}&l={lang_codes['subscene']}",
+            'yifysubtitles': f"https://yifysubtitles.ch/search?q={search_query}"
+        }
+
+        return links
     
     def _create_intelligent_subtitle(self, movie_name, language):
         """Create an intelligent subtitle based on movie name and language"""
