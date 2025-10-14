@@ -872,6 +872,20 @@ async def separator_handler(client, callback_query):
     """Handle separator button clicks"""
     await callback_query.answer("This is just a separator", show_alert=False)
 
+# Debug handler - catch all unhandled callbacks
+@Client.on_callback_query()
+async def debug_callback_handler(client, callback_query):
+    """Debug handler to log all callback queries"""
+    print(f"[DEBUG_CALLBACK] Received callback: {callback_query.data}")
+    print(f"[DEBUG_CALLBACK] From user: {callback_query.from_user.id}")
+
+    # Check if it matches our pattern
+    if callback_query.data.startswith('select_movie#'):
+        print(f"[DEBUG_CALLBACK] This is a select_movie callback!")
+        print(f"[DEBUG_CALLBACK] Temp storage keys: {list(temp.PM_SEARCH_RESULTS.keys()) if hasattr(temp, 'PM_SEARCH_RESULTS') else 'No PM_SEARCH_RESULTS'}")
+
+    # Don't handle it here - let other handlers process it
+
 
 
 
