@@ -338,10 +338,11 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
                 # Edit the status message to show results instead of creating new message
                 print(f"[PM_FILTER] About to edit status message with {len(btn)} buttons")
                 await status_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
-                print(f"[PM_FILTER] Movie list sent successfully, will delete after {IMDB_DELET_TIME}s")
-                await asyncio.sleep(IMDB_DELET_TIME)
-                await status_msg.delete()
-                print(f"[PM_FILTER] Status message deleted")
+                print(f"[PM_FILTER] Movie list sent successfully")
+                # Don't auto-delete - let users interact with the buttons
+                # await asyncio.sleep(IMDB_DELET_TIME)
+                # await status_msg.delete()
+                # print(f"[PM_FILTER] Status message deleted")
             except Exception as e:
                 print(f"[PM_FILTER] Error updating status message: {e}")
                 logger.error(f"PM_FILTER status update error: {e}")
@@ -423,10 +424,12 @@ async def movie_selected(client, callback_query):
     """Handle movie selection - show subtitle options"""
     try:
         print(f"[SELECT_MOVIE] Movie selected callback: {callback_query.data}")
+        await callback_query.answer("Loading subtitle options...")  # Acknowledge button click
+
         _, key, file_index = callback_query.data.split('#')
         file_index = int(file_index)
         print(f"[SELECT_MOVIE] Key: {key}, File index: {file_index}")
-        
+
         # Get stored search results
         if key not in temp.PM_SEARCH_RESULTS:
             return await callback_query.answer("❌ Search results expired. Please search again.", show_alert=True)
