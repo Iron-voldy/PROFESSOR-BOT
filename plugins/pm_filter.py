@@ -1,4 +1,4 @@
-import asyncio, re, ast, math, logging, pyrogram, io
+﻿import asyncio, re, ast, math, logging, pyrogram, io
 from pyrogram.errors.exceptions.bad_request_400 import MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty
 from Script import script
 from utils import get_shortlink 
@@ -42,7 +42,7 @@ def extract_clean_title(filename: str) -> str:
         return clean_name if clean_name else filename
         
     except Exception as e:
-        print(f"[EXTRACT_TITLE] Error: {e}")
+        logger.debug(f"[ Error: {e}")
         return filename
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,6 @@ logger.setLevel(logging.ERROR)
 
 @Client.on_message(filters.private & filters.text)
 async def auto_pm_fill(client, message):
-    print(f"[PM_FILTER] Received: '{message.text}' from user {message.from_user.id}")
-    
     # Check if user is subscribed to required channels
     if AUTH_CHANNEL:
         is_subscribed_result = await is_subscribed(client, message)
@@ -60,16 +58,18 @@ async def auto_pm_fill(client, message):
             return  # is_subscribed function handles the subscription prompt
     
     if PMFILTER:
-        print(f"[PM_FILTER] Processing movie search for: '{message.text}'")
         # Send immediate feedback to user
-        status_msg = await message.reply("🔍 **Searching for movies...** Please wait.", quote=True)
+        status_msg = await message.reply("ðŸ” **Searching for movies...** Please wait.", quote=True)
         try:
             await pm_AutoFilter(client, message, status_msg)
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
         except Exception as e:
-            await status_msg.edit_text("❌ **Error occurred during search.** Please try again.")
+            try:
+                await status_msg.edit_text("âŒ **Error occurred during search.** Please try again.")
+            except:
+                pass
             logger.error(f"Error in pm_AutoFilter: {e}")
-            import traceback
-            traceback.print_exc()
     else: 
         print("[PM_FILTER] PMFILTER is disabled")
         return 
@@ -80,7 +80,7 @@ async def pm_next_page(bot, query):
     try: offset = int(offset)
     except: offset = 0
     search = temp.PM_BUTTONS.get(str(key))
-    if not search: return await query.answer("Yᴏᴜ Aʀᴇ Usɪɴɢ Oɴᴇ Oғ Mʏ Oʟᴅ Mᴇssᴀɢᴇs, Pʟᴇᴀsᴇ Sᴇɴᴅ Tʜᴇ Rᴇǫᴜᴇsᴛ Aɢᴀɪɴ", show_alert=True)
+    if not search: return await query.answer("Yá´á´œ AÊ€á´‡ UsÉªÉ´É¢ OÉ´á´‡ OÒ“ MÊ OÊŸá´… Má´‡ssá´€É¢á´‡s, PÊŸá´‡á´€sá´‡ Sá´‡É´á´… TÊœá´‡ Rá´‡Ç«á´œá´‡sá´› AÉ¢á´€ÉªÉ´", show_alert=True)
 
     files, n_offset, total = await get_search_results(search.lower(), offset=offset, filter=True)
     try: n_offset = int(n_offset)
@@ -102,7 +102,7 @@ async def pm_next_page(bot, query):
                     btn.append([InlineKeyboardButton(text=f"{file_name}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=files_{file_id}")),
                                InlineKeyboardButton(text=f"{get_size(file_size)}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=files_{file_id}"))])
             except Exception as e:
-                print(f"[PM_FILTER] Error processing file for SHORT_URL: {e}")
+                logger.debug(f"[ Error processing file for SHORT_URL: {e}")
                 continue
     else:        
         btn = []
@@ -119,27 +119,27 @@ async def pm_next_page(bot, query):
                     btn.append([InlineKeyboardButton(text=f"{file_name}", callback_data=f'pmfile#{file_id}'),
                                InlineKeyboardButton(text=f"{get_size(file_size)}", callback_data=f'pmfile#{file_id}')])
             except Exception as e:
-                print(f"[PM_FILTER] Error processing file for callback: {e}")
+                logger.debug(f"[ Error processing file for callback: {e}")
                 continue
 
-    btn.insert(0, [InlineKeyboardButton("🔗 ʜᴏᴡ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ 🔗", "howdl")])
+    btn.insert(0, [InlineKeyboardButton("ðŸ”— Êœá´á´¡ á´›á´ á´…á´á´¡É´ÊŸá´á´€á´… ðŸ”—", "howdl")])
     if 0 < offset <= 10: off_set = 0
     elif offset == 0: off_set = None
     else: off_set = offset - 10
     if n_offset == 0:
         btn.append(
-            [InlineKeyboardButton("⬅️ ʙᴀᴄᴋ", callback_data=f"pmnext_{req}_{key}_{off_set}"),
-             InlineKeyboardButton(f"❄️ ᴩᴀɢᴇꜱ {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages")]                                  
+            [InlineKeyboardButton("â¬…ï¸ Ê™á´€á´„á´‹", callback_data=f"pmnext_{req}_{key}_{off_set}"),
+             InlineKeyboardButton(f"â„ï¸ á´©á´€É¢á´‡êœ± {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages")]                                  
         )
     elif off_set is None:
         btn.append(
-            [InlineKeyboardButton(f"❄️ {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
-             InlineKeyboardButton("ɴᴇxᴛ ➡️", callback_data=f"pmnext_{req}_{key}_{n_offset}")])
+            [InlineKeyboardButton(f"â„ï¸ {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
+             InlineKeyboardButton("É´á´‡xá´› âž¡ï¸", callback_data=f"pmnext_{req}_{key}_{n_offset}")])
     else:
         btn.append([
-            InlineKeyboardButton("⬅️ ʙᴀᴄᴋ", callback_data=f"pmnext_{req}_{key}_{off_set}"),
-            InlineKeyboardButton(f"❄️ {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
-            InlineKeyboardButton("ɴᴇxᴛ ➡️", callback_data=f"pmnext_{req}_{key}_{n_offset}")
+            InlineKeyboardButton("â¬…ï¸ Ê™á´€á´„á´‹", callback_data=f"pmnext_{req}_{key}_{off_set}"),
+            InlineKeyboardButton(f"â„ï¸ {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
+            InlineKeyboardButton("É´á´‡xá´› âž¡ï¸", callback_data=f"pmnext_{req}_{key}_{n_offset}")
         ])
     try:
         await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(btn))
@@ -155,15 +155,15 @@ async def pm_spoll_tester(bot, query):
         return await query.message.delete()
     movies = temp.PM_SPELL.get(str(query.message.reply_to_message.id))
     if not movies:
-        return await query.answer("Yᴏᴜ Aʀᴇ Usɪɴɢ Oɴᴇ Oғ Mʏ Oʟᴅ Mᴇssᴀɢᴇs, Pʟᴇᴀsᴇ Sᴇɴᴅ Tʜᴇ Rᴇǫᴜᴇsᴛ Aɢᴀɪɴ", show_alert=True)
+        return await query.answer("Yá´á´œ AÊ€á´‡ UsÉªÉ´É¢ OÉ´á´‡ OÒ“ MÊ OÊŸá´… Má´‡ssá´€É¢á´‡s, PÊŸá´‡á´€sá´‡ Sá´‡É´á´… TÊœá´‡ Rá´‡Ç«á´œá´‡sá´› AÉ¢á´€ÉªÉ´", show_alert=True)
     movie = movies[(int(movie_))]
-    await query.answer('Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ...')
+    await query.answer('CÊœá´‡á´„á´‹ÉªÉ´É¢ Fá´Ê€ Má´á´ Éªá´‡ IÉ´ Dá´€á´›á´€Ê™á´€sá´‡...')
     files, offset, total_results = await get_search_results(movie, offset=0, filter=True)
     if files:
         k = (movie, files, offset, total_results)
         await pm_AutoFilter(bot, query, k)
     else:
-        k = await query.message.edit('Tʜɪs Mᴏᴠɪᴇ Nᴏᴛ Fᴏᴜɴᴅ Iɴ Dᴀᴛᴀʙᴀsᴇ')
+        k = await query.message.edit('TÊœÉªs Má´á´ Éªá´‡ Ná´á´› Fá´á´œÉ´á´… IÉ´ Dá´€á´›á´€Ê™á´€sá´‡')
         await asyncio.sleep(10)
         await k.delete()
 
@@ -181,27 +181,12 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
             return
         if 2 < len(message.text) < 100:
             search = message.text
-            print(f"[PM_FILTER] Searching database for: '{search}'")
-            import time
-            search_start = time.time()
             files, offset, total_results = await get_search_results(search.lower(), offset=0, filter=True)
-            search_duration = time.time() - search_start
-            print(f"[PM_FILTER] Search completed in {search_duration:.2f}s - found {total_results} results")
             
             if not files: 
-                print(f"[PM_FILTER] No files found for '{search}', initiating spell check")
                 if status_msg:
-                    await status_msg.edit_text("🔍 **No direct matches found.** Checking for similar titles...")
+                    await status_msg.edit_text("ðŸ” **No direct matches found.** Checking for similar titles...")
                 return await pm_spoll_choker(msg, status_msg)
-            else:
-                print(f"[PM_FILTER] Found {len(files)} files, preparing response")
-                
-                # Debug button generation
-                print(f"[PM_FILTER] SHORT_URL: {SHORT_URL}, SHORT_API: {bool(SHORT_API)}")
-                print(f"[PM_FILTER] SINGLE_BUTTON: {SINGLE_BUTTON}")
-                # Get first file name safely
-                first_file_name = files[0].get('file_name', 'Unknown') if files else 'None'
-                print(f"[PM_FILTER] First file: {first_file_name}")              
         else: 
             if status_msg:
                 await status_msg.delete()
@@ -226,7 +211,7 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
                     btn.append([InlineKeyboardButton(text=f"{file_name}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file_id}")),
                                InlineKeyboardButton(text=f"{get_size(file_size)}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file_id}"))])
             except Exception as e:
-                print(f"[PM_FILTER] Error processing file for SHORT_URL (main): {e}")
+                logger.debug(f"[ Error processing file for SHORT_URL (main): {e}")
                 continue
     else:        
         btn = []
@@ -243,27 +228,25 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
                 file_size = file.get('file_size', 0)
                     
                 btn.append([InlineKeyboardButton(
-                    text=f"🎬 {file_name} [{get_size(file_size)}]", 
+                    text=f"ðŸŽ¬ {file_name} [{get_size(file_size)}]", 
                     callback_data=f'select_movie#{key}#{i}'
                 )])
             except Exception as e:
-                print(f"[PM_FILTER] Error processing file {i}: {e}")
+                logger.warning(f"Error processing file {i}: {e}")
                 continue        
 
-    print(f"[PM_FILTER] Generated {len(btn)} movie buttons")
-    btn.insert(0, [InlineKeyboardButton("🔗 ʜᴏᴡ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ 🔗", "howdl")])
-    print(f"[PM_FILTER] Added download help button, total buttons: {len(btn)}")
+    btn.insert(0, [InlineKeyboardButton("ðŸ”— Êœá´á´¡ á´›á´ á´…á´á´¡É´ÊŸá´á´€á´… ðŸ”—", "howdl")])
     if offset != "":
         key = f"{message.id}"
         temp.PM_BUTTONS[key] = search
         req = message.from_user.id if message.from_user else 0
         btn.append(
-            [InlineKeyboardButton(text=f"❄️ ᴩᴀɢᴇꜱ 1/{math.ceil(int(total_results) / 6)}", callback_data="pages"),
-            InlineKeyboardButton(text="ɴᴇxᴛ ➡️", callback_data=f"pmnext_{req}_{key}_{offset}")]
+            [InlineKeyboardButton(text=f"â„ï¸ á´©á´€É¢á´‡êœ± 1/{math.ceil(int(total_results) / 6)}", callback_data="pages"),
+            InlineKeyboardButton(text="É´á´‡xá´› âž¡ï¸", callback_data=f"pmnext_{req}_{key}_{offset}")]
         )
     else:
         btn.append(
-            [InlineKeyboardButton(text="❄️ ᴩᴀɢᴇꜱ 1/1", callback_data="pages")]
+            [InlineKeyboardButton(text="â„ï¸ á´©á´€É¢á´‡êœ± 1/1", callback_data="pages")]
         )
     # Skip IMDB fetching for faster response - can be re-enabled if needed
     imdb = None
@@ -303,16 +286,12 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
             **locals()
         )
     else:
-        cap = f"🎬 **Found {len(files)} movies matching:** `{search}`\n\n📋 **Select a movie to see subtitle options:**"
+        cap = f"ðŸŽ¬ **Found {len(files)} movies matching:** `{search}`\n\nðŸ“‹ **Select a movie to see subtitle options:**"
         
     # Update status message with results (but don't show movie buttons yet)
     if status_msg and not pmspoll:
-        print(f"[PM_FILTER] Updating status message with {len(files)} movies found")
-        await status_msg.edit_text(f"✅ **Search completed!** Found {len(files)} movies.")
-        print(f"[PM_FILTER] Status message updated successfully")
+        await status_msg.edit_text(f"âœ… **Search completed!** Found {len(files)} movies.")
     
-    print(f"[PM_FILTER] Preparing to send movie list, imdb: {bool(imdb)}")
-    print(f"[PM_FILTER] Button count: {len(btn)}, Cap length: {len(cap) if cap else 0}")
     if imdb and imdb.get('poster'):
         try:
             hehe = await message.reply_photo(photo=imdb.get('poster'), caption=cap, quote=True, reply_markup=InlineKeyboardMarkup(btn))
@@ -330,31 +309,15 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
             await asyncio.sleep(IMDB_DELET_TIME)
             await cdp.delete()
     else:
-        print(f"[PM_FILTER] No IMDB poster, sending text message")
         if status_msg and not pmspoll:
-            print(f"[PM_FILTER] Editing status message with movie list")
-            print(f"[PM_FILTER] Status_msg exists: {bool(status_msg)}, pmspoll: {pmspoll}")
             try:
-                # Edit the status message to show results instead of creating new message
-                print(f"[PM_FILTER] About to edit status message with {len(btn)} buttons")
                 await status_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
-                print(f"[PM_FILTER] Movie list sent successfully")
-                # Don't auto-delete - let users interact with the buttons
-                # await asyncio.sleep(IMDB_DELET_TIME)
-                # await status_msg.delete()
-                # print(f"[PM_FILTER] Status message deleted")
             except Exception as e:
-                print(f"[PM_FILTER] Error updating status message: {e}")
                 logger.error(f"PM_FILTER status update error: {e}")
-                import traceback
-                traceback.print_exc()
         else:
-            print(f"[PM_FILTER] Creating new reply message")
             try:
                 abc = await message.reply_text(cap, quote=True, reply_markup=InlineKeyboardMarkup(btn))
-                print(f"[PM_FILTER] New message created successfully")
             except Exception as e:
-                print(f"[PM_FILTER] Error creating new message: {e}")
                 logger.error(f"PM_FILTER new message error: {e}")
             await asyncio.sleep(IMDB_DELET_TIME)
             await abc.delete()        
@@ -365,16 +328,24 @@ async def pm_AutoFilter(client, msg, status_msg=None, pmspoll=False):
 async def pm_spoll_choker(msg, status_msg=None):
     query = re.sub(r"\b(pl(i|e)*?(s|z+|ease|se|ese|(e+)s(e)?)|((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|br((o|u)h?)*|^h(e|a)?(l)*(o)*|mal(ayalam)?|t(h)?amil|file|that|find|und(o)*|kit(t(i|y)?)?o(w)?|thar(u)?(o)*w?|kittum(o)*|aya(k)*(um(o)*)?|full\smovie|any(one)|with\ssubtitle(s)?)", "", msg.text, flags=re.IGNORECASE)  # plis contribute some common words
     query = query.strip() + " movie"
-    g_s = await search_gagala(query)
-    g_s += await search_gagala(msg.text)
+    # Run both Google searches concurrently for speed
+    g_s_results = await asyncio.gather(
+        search_gagala(query),
+        search_gagala(msg.text),
+        return_exceptions=True
+    )
+    g_s = []
+    for r in g_s_results:
+        if isinstance(r, list):
+            g_s += r
     gs_parsed = []
     if not g_s:
         if status_msg:
-            await status_msg.edit_text("❌ **I couldn't find any movie with that name.** Please check your spelling and try again.")
+            await status_msg.edit_text("âŒ **I couldn't find any movie with that name.** Please check your spelling and try again.")
             await asyncio.sleep(10)
             return await status_msg.delete()
         else:
-            k = await msg.reply("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏ Mᴏᴠɪᴇ Iɴ Tʜᴀᴛ Nᴀᴍᴇ", quote=True)
+            k = await msg.reply("I Cá´á´œÊŸá´…É´'á´› FÉªÉ´á´… AÉ´Ê Má´á´ Éªá´‡ IÉ´ TÊœá´€á´› Ná´€á´á´‡", quote=True)
             await asyncio.sleep(10)
             return await k.delete()
     regex = re.compile(r".*(imdb|wikipedia).*", re.IGNORECASE)  # look for imdb / wiki results
@@ -398,11 +369,11 @@ async def pm_spoll_choker(msg, status_msg=None):
     movielist = list(dict.fromkeys(movielist))  # removing duplicates
     if not movielist:
         if status_msg:
-            await status_msg.edit_text("❌ **I couldn't find anything related to that.** Please check your spelling and try again.")
+            await status_msg.edit_text("âŒ **I couldn't find anything related to that.** Please check your spelling and try again.")
             await asyncio.sleep(10)
             return await status_msg.delete()
         else:
-            k = await msg.reply("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ. Cʜᴇᴄᴋ Yᴏᴜʀ Sᴘᴇʟʟɪɴɢ", quote=True)
+            k = await msg.reply("I Cá´á´œÊŸá´…É´'á´› FÉªÉ´á´… AÉ´Êá´›ÊœÉªÉ´É¢ Rá´‡ÊŸá´€á´›á´‡á´… Tá´ TÊœá´€á´›. CÊœá´‡á´„á´‹ Yá´á´œÊ€ Sá´˜á´‡ÊŸÊŸÉªÉ´É¢", quote=True)
             await asyncio.sleep(10)
             return await k.delete()
     temp.PM_SPELL[str(msg.id)] = movielist
@@ -410,9 +381,9 @@ async def pm_spoll_choker(msg, status_msg=None):
     btn.append([InlineKeyboardButton(text="Close", callback_data=f'pmspolling#{user}#close_spellcheck')])
     
     if status_msg:
-        await status_msg.edit_text("🤔 **I couldn't find exact matches.** Did you mean any of these?", reply_markup=InlineKeyboardMarkup(btn))
+        await status_msg.edit_text("ðŸ¤” **I couldn't find exact matches.** Did you mean any of these?", reply_markup=InlineKeyboardMarkup(btn))
     else:
-        await msg.reply("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ. Dɪᴅ Yᴏᴜ Mᴇᴀɴ Aɴʏ Oɴᴇ Oғ Tʜᴇsᴇ?", reply_markup=InlineKeyboardMarkup(btn), quote=True)
+        await msg.reply("I Cá´á´œÊŸá´…É´'á´› FÉªÉ´á´… AÉ´Êá´›ÊœÉªÉ´É¢ Rá´‡ÊŸá´€á´›á´‡á´… Tá´ TÊœá´€á´›. DÉªá´… Yá´á´œ Má´‡á´€É´ AÉ´Ê OÉ´á´‡ OÒ“ TÊœá´‡sá´‡?", reply_markup=InlineKeyboardMarkup(btn), quote=True)
 
 
 # Initialize subtitle handler
@@ -423,23 +394,21 @@ subtitle_handler = SubtitleHandler()
 async def movie_selected(client, callback_query):
     """Handle movie selection - show subtitle options"""
     try:
-        print(f"[SELECT_MOVIE] Movie selected callback: {callback_query.data}")
         await callback_query.answer("Loading subtitle options...")  # Acknowledge button click
 
         _, key, file_index = callback_query.data.split('#')
         file_index = int(file_index)
-        print(f"[SELECT_MOVIE] Key: {key}, File index: {file_index}")
 
         # Get stored search results
         if key not in temp.PM_SEARCH_RESULTS:
-            return await callback_query.answer("❌ Search results expired. Please search again.", show_alert=True)
+            return await callback_query.answer("âŒ Search results expired. Please search again.", show_alert=True)
             
         search_data = temp.PM_SEARCH_RESULTS[key]
         files = search_data['files']
         search_query = search_data['search']
         
         if file_index >= len(files):
-            return await callback_query.answer("❌ Invalid movie selection!", show_alert=True)
+            return await callback_query.answer("âŒ Invalid movie selection!", show_alert=True)
             
         selected_file = files[file_index]
         
@@ -450,10 +419,10 @@ async def movie_selected(client, callback_query):
         movie_id = selected_file.get('_id', '')
         
         movie_info = (
-            f"🎬 **Selected Movie**\n\n"
-            f"📁 **Name:** `{movie_name}`\n"
-            f"📊 **Size:** `{get_size(movie_size)}`\n\n"
-            f"🌐 **Choose subtitle language or download without subtitles:**"
+            f"ðŸŽ¬ **Selected Movie**\n\n"
+            f"ðŸ“ **Name:** `{movie_name}`\n"
+            f"ðŸ“Š **Size:** `{get_size(movie_size)}`\n\n"
+            f"ðŸŒ **Choose subtitle language or download without subtitles:**"
         )
         
         # Store file info in temp storage to avoid long callback data
@@ -462,22 +431,22 @@ async def movie_selected(client, callback_query):
         
         # Create subtitle language buttons with short callback data
         btn = [
-            [InlineKeyboardButton("🇬🇧 English", callback_data=f'download_with_sub#{file_key}#en')],
-            [InlineKeyboardButton("🇪🇸 Spanish", callback_data=f'download_with_sub#{file_key}#es')], 
-            [InlineKeyboardButton("🇫🇷 French", callback_data=f'download_with_sub#{file_key}#fr')],
-            [InlineKeyboardButton("🇩🇪 German", callback_data=f'download_with_sub#{file_key}#de')],
-            [InlineKeyboardButton("🇮🇳 Hindi", callback_data=f'download_with_sub#{file_key}#hi')],
-            [InlineKeyboardButton("🇱🇰 Sinhala", callback_data=f'download_with_sub#{file_key}#si')],
-            [InlineKeyboardButton("🌐 More Languages", callback_data=f'more_languages#{file_key}')],
-            [InlineKeyboardButton("❌ No Subtitles Needed", callback_data=f'download_only#{movie_id}')],
-            [InlineKeyboardButton("◀️ Back to Movies", callback_data=f'back_to_movies#{key}')]
+            [InlineKeyboardButton("ðŸ‡¬ðŸ‡§ English", callback_data=f'download_with_sub#{file_key}#en')],
+            [InlineKeyboardButton("ðŸ‡ªðŸ‡¸ Spanish", callback_data=f'download_with_sub#{file_key}#es')], 
+            [InlineKeyboardButton("ðŸ‡«ðŸ‡· French", callback_data=f'download_with_sub#{file_key}#fr')],
+            [InlineKeyboardButton("ðŸ‡©ðŸ‡ª German", callback_data=f'download_with_sub#{file_key}#de')],
+            [InlineKeyboardButton("ðŸ‡®ðŸ‡³ Hindi", callback_data=f'download_with_sub#{file_key}#hi')],
+            [InlineKeyboardButton("ðŸ‡±ðŸ‡° Sinhala", callback_data=f'download_with_sub#{file_key}#si')],
+            [InlineKeyboardButton("ðŸŒ More Languages", callback_data=f'more_languages#{file_key}')],
+            [InlineKeyboardButton("âŒ No Subtitles Needed", callback_data=f'download_only#{movie_id}')],
+            [InlineKeyboardButton("â—€ï¸ Back to Movies", callback_data=f'back_to_movies#{key}')]
         ]
         
         await callback_query.message.edit_text(movie_info, reply_markup=InlineKeyboardMarkup(btn))
         
     except Exception as e:
         logger.error(f"Error in movie selection: {e}")
-        await callback_query.answer("❌ Error occurred. Please try again.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred. Please try again.", show_alert=True)
 
 # Back to movie list handler
 @Client.on_callback_query(filters.regex(r'^back_to_movies#'))
@@ -487,7 +456,7 @@ async def back_to_movies(client, callback_query):
         _, key = callback_query.data.split('#', 1)
         
         if key not in temp.PM_SEARCH_RESULTS:
-            return await callback_query.answer("❌ Search results expired. Please search again.", show_alert=True)
+            return await callback_query.answer("âŒ Search results expired. Please search again.", show_alert=True)
             
         search_data = temp.PM_SEARCH_RESULTS[key]
         files = search_data['files']
@@ -500,32 +469,32 @@ async def back_to_movies(client, callback_query):
             file_name = file.get('file_name', 'Unknown')
             file_size = file.get('file_size', 0)
             btn.append([InlineKeyboardButton(
-                text=f"🎬 {file_name} [{get_size(file_size)}]", 
+                text=f"ðŸŽ¬ {file_name} [{get_size(file_size)}]", 
                 callback_data=f'select_movie#{key}#{i}'
             )])
             
-        btn.insert(0, [InlineKeyboardButton("🔗 ʜᴏᴡ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ 🔗", "howdl")])
+        btn.insert(0, [InlineKeyboardButton("ðŸ”— Êœá´á´¡ á´›á´ á´…á´á´¡É´ÊŸá´á´€á´… ðŸ”—", "howdl")])
         
-        cap = f"🎬 **Found {len(files)} movies matching:** `{search_query}`\n\n📋 **Select a movie to see subtitle options:**"
+        cap = f"ðŸŽ¬ **Found {len(files)} movies matching:** `{search_query}`\n\nðŸ“‹ **Select a movie to see subtitle options:**"
         
         await callback_query.message.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
         
     except Exception as e:
         logger.error(f"Error going back to movies: {e}")
-        await callback_query.answer("❌ Error occurred. Please try again.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred. Please try again.", show_alert=True)
 
 # Download only (no subtitles) handler
 @Client.on_callback_query(filters.regex(r'^download_only#'))
 async def download_movie_only(client, callback_query):
     """Download movie without subtitles"""
     try:
-        print(f"[DOWNLOAD_ONLY] Starting download for callback: {callback_query.data}")
+        logger.debug(f"[ Starting download for callback: {callback_query.data}")
         _, file_id = callback_query.data.split('#', 1)
-        print(f"[DOWNLOAD_ONLY] File ID: {file_id}")
+        logger.debug(f"[ File ID: {file_id}")
         
         # Get file details and send directly
         file_details = await get_file_details(file_id)
-        print(f"[DOWNLOAD_ONLY] File details retrieved: {len(file_details) if file_details else 0} files")
+        logger.debug(f"[ File details retrieved: {len(file_details) if file_details else 0} files")
         
         if file_details and len(file_details) > 0:
             file = file_details[0]
@@ -533,13 +502,13 @@ async def download_movie_only(client, callback_query):
             file_name = getattr(file, 'file_name', file.get('file_name', 'Unknown')) if isinstance(file, dict) else file.file_name
             file_size = getattr(file, 'file_size', file.get('file_size', 0)) if isinstance(file, dict) else file.file_size
             
-            print(f"[DOWNLOAD_ONLY] File info: {file_name} - {get_size(file_size)}")
+            logger.debug(f"[ File info: {file_name} - {get_size(file_size)}")
             
             await callback_query.message.edit_text(
-                f"📥 **Downloading movie...**\n\n"
-                f"🎬 **Movie:** `{file_name}`\n"
-                f"📊 **Size:** `{get_size(file_size)}`\n\n"
-                f"⬇️ **Your download is starting...**"
+                f"ðŸ“¥ **Downloading movie...**\n\n"
+                f"ðŸŽ¬ **Movie:** `{file_name}`\n"
+                f"ðŸ“Š **Size:** `{get_size(file_size)}`\n\n"
+                f"â¬‡ï¸ **Your download is starting...**"
             )
             
             # Send the movie file directly using the same logic as pmfile handler
@@ -551,13 +520,13 @@ async def download_movie_only(client, callback_query):
                 if AUTH_CHANNEL:
                     is_sub = await is_subscribed(client, callback_query)
                     if not is_sub:
-                        print(f"[DOWNLOAD_ONLY] User not subscribed, redirecting...")
+                        logger.debug(f"[ User not subscribed, redirecting...")
                         return await callback_query.answer(url=f"https://t.me/{temp.U_NAME}?start=pmfile_{file_id}")
                 
-                print(f"[DOWNLOAD_ONLY] Sending movie: {title}")
+                logger.debug(f"[ Sending movie: {title}")
                 # Use the actual file_id from the file object, not the callback data
                 actual_file_id = getattr(file, 'file_id', file.get('_id', '')) if isinstance(file, dict) else file.file_id
-                print(f"[DOWNLOAD_ONLY] Using actual file_id: {actual_file_id}")
+                logger.debug(f"[ Using actual file_id: {actual_file_id}")
                 
                 await client.send_cached_media(
                     chat_id=callback_query.from_user.id, 
@@ -565,51 +534,51 @@ async def download_movie_only(client, callback_query):
                     caption=f_caption, 
                     protect_content=PROTECT_CONTENT
                 )
-                print(f"[DOWNLOAD] Movie sent successfully: {title}")
+                logger.debug(f"[ Movie sent successfully: {title}")
                     
             except Exception as e:
-                print(f"[ERROR] Failed to send movie: {e}")
-                print(f"[ERROR] Exception type: {type(e).__name__}")
+                logger.debug(f"[ Failed to send movie: {e}")
+                logger.debug(f"[ Exception type: {type(e).__name__}")
                 import traceback
                 traceback.print_exc()
-                await callback_query.answer(f"⚠️ Error sending movie: {e}", show_alert=True)
+                await callback_query.answer(f"âš ï¸ Error sending movie: {e}", show_alert=True)
             
         else:
-            await callback_query.answer("❌ Movie file not found!", show_alert=True)
+            await callback_query.answer("âŒ Movie file not found!", show_alert=True)
             
     except Exception as e:
         logger.error(f"Error in download only: {e}")
-        await callback_query.answer("❌ Error occurred. Please try again.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred. Please try again.", show_alert=True)
 
 # Download with subtitles handler
 @Client.on_callback_query(filters.regex(r'^download_with_sub#'))
 async def download_movie_with_subtitles(client, callback_query):
     """Download movie with selected subtitle language"""
     try:
-        print(f"[DOWNLOAD_WITH_SUB] Starting download for callback: {callback_query.data}")
+        logger.debug(f"[ Starting download for callback: {callback_query.data}")
         _, file_key, language = callback_query.data.split('#', 2)
-        print(f"[DOWNLOAD_WITH_SUB] File key: {file_key}, Language: {language}")
+        logger.debug(f"[ File key: {file_key}, Language: {language}")
         
         # Get file info from temp storage
         if file_key not in temp.PM_SEARCH_RESULTS:
-            return await callback_query.answer("❌ File data expired. Please search again.", show_alert=True)
+            return await callback_query.answer("âŒ File data expired. Please search again.", show_alert=True)
             
         file_data = temp.PM_SEARCH_RESULTS[file_key]
         search_query = file_data['search']
         selected_file = file_data['file']
-        print(f"[DOWNLOAD_WITH_SUB] Retrieved: Search={search_query}, File={selected_file.get('file_name', 'Unknown')}")
+        logger.debug(f"[ Retrieved: Search={search_query}, File={selected_file.get('file_name', 'Unknown')}")
         
         # Show searching message
         await callback_query.message.edit_text(
-            f"🔍 **Searching for {language.upper()} subtitles...**\n\n"
-            f"🎬 **Movie:** Preparing download...\n"
-            f"🌐 **Language:** `{language.upper()}`\n\n"
-            f"⏱️ This usually takes 5-10 seconds..."
+            f"ðŸ” **Searching for {language.upper()} subtitles...**\n\n"
+            f"ðŸŽ¬ **Movie:** Preparing download...\n"
+            f"ðŸŒ **Language:** `{language.upper()}`\n\n"
+            f"â±ï¸ This usually takes 5-10 seconds..."
         )
         
         # Search for subtitles using hybrid approach for best accuracy
         movie_filename = selected_file.get('file_name', 'Unknown')
-        print(f"[DOWNLOAD_WITH_SUB] Using movie filename for subtitle search: {movie_filename}")
+        logger.debug(f"[ Using movie filename for subtitle search: {movie_filename}")
         
         # Try with movie filename first (enhanced Subliminal will clean it properly)
         subtitles = await subtitle_handler.search_all_sources(movie_filename, language=language)
@@ -617,20 +586,20 @@ async def download_movie_with_subtitles(client, callback_query):
         # If no results with filename, try with cleaned movie title for fallback sources
         if not subtitles:
             cleaned_title = extract_clean_title(movie_filename)
-            print(f"[DOWNLOAD_WITH_SUB] No subtitles found with filename, trying cleaned title: {cleaned_title}")
+            logger.debug(f"[ No subtitles found with filename, trying cleaned title: {cleaned_title}")
             subtitles = await subtitle_handler.search_all_sources(cleaned_title, language=language)
         
         # Final fallback to original search query  
         if not subtitles:
-            print(f"[DOWNLOAD_WITH_SUB] No subtitles found with cleaned title, trying search query: {search_query}")
+            logger.debug(f"[ No subtitles found with cleaned title, trying search query: {search_query}")
             subtitles = await subtitle_handler.search_all_sources(search_query, language=language)
         
         if subtitles:
             await callback_query.message.edit_text(
-                f"📥 **Downloading subtitle...**\n\n"
-                f"🎬 **Movie:** Preparing...\n"
-                f"🌐 **Language:** `{language.upper()}`\n\n"
-                f"⏱️ Trying {len(subtitles)} subtitle sources... (5-15 seconds)"
+                f"ðŸ“¥ **Downloading subtitle...**\n\n"
+                f"ðŸŽ¬ **Movie:** Preparing...\n"
+                f"ðŸŒ **Language:** `{language.upper()}`\n\n"
+                f"â±ï¸ Trying {len(subtitles)} subtitle sources... (5-15 seconds)"
             )
             
             # Try downloading from multiple subtitle sources
@@ -640,15 +609,15 @@ async def download_movie_with_subtitles(client, callback_query):
             
             for subtitle in subtitles:
                 try:
-                    print(f"[DOWNLOAD_WITH_SUB] Trying subtitle from {subtitle['source']}: {subtitle['title']}")
+                    logger.debug(f"[ Trying subtitle from {subtitle['source']}: {subtitle['title']}")
                     subtitle_content = await subtitle_handler.download_subtitle(subtitle['download_url'], subtitle['source'], subtitle, language, search_query)
                     if subtitle_content:
-                        print(f"[DOWNLOAD_WITH_SUB] Successfully downloaded from {subtitle['source']}")
+                        logger.debug(f"[ Successfully downloaded from {subtitle['source']}")
                         selected_subtitle = subtitle
                         break
                     tried_sources.append(subtitle['source'])
                 except Exception as e:
-                    print(f"[DOWNLOAD_WITH_SUB] Failed to download from {subtitle['source']}: {e}")
+                    logger.debug(f"[ Failed to download from {subtitle['source']}: {e}")
                     tried_sources.append(subtitle['source'])
             
             if subtitle_content and selected_subtitle:
@@ -660,19 +629,19 @@ async def download_movie_with_subtitles(client, callback_query):
 
                 await callback_query.message.reply_document(
                     subtitle_file,
-                    caption=f"🎬📄 **Subtitle File**\n\n"
-                           f"📄 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
-                           f"🌐 **Language:** `{language.upper()}`\n"
-                           f"🔗 **Source:** `{selected_subtitle['source']}`"
+                    caption=f"ðŸŽ¬ðŸ“„ **Subtitle File**\n\n"
+                           f"ðŸ“„ **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
+                           f"ðŸŒ **Language:** `{language.upper()}`\n"
+                           f"ðŸ”— **Source:** `{selected_subtitle['source']}`"
                 )
 
                 # Now send the movie file
                 await callback_query.message.edit_text(
-                    f"✅ **Subtitle sent! Now sending movie...**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
-                    f"📊 **Size:** `{get_size(selected_file.get('file_size', 0))}`\n"
-                    f"🌐 **Subtitle:** `{language.upper()}`\n\n"
-                    f"⬇️ **Movie download starting...**"
+                    f"âœ… **Subtitle sent! Now sending movie...**\n\n"
+                    f"ðŸŽ¬ **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
+                    f"ðŸ“Š **Size:** `{get_size(selected_file.get('file_size', 0))}`\n"
+                    f"ðŸŒ **Subtitle:** `{language.upper()}`\n\n"
+                    f"â¬‡ï¸ **Movie download starting...**"
                 )
 
                 # Send movie file using the same logic as pmfile handler
@@ -685,7 +654,7 @@ async def download_movie_with_subtitles(client, callback_query):
                     else:
                         # Use the actual file_id from the file object
                         actual_file_id = selected_file.get('_id', '')
-                        print(f"[DOWNLOAD_WITH_SUB] Using actual file_id: {actual_file_id}")
+                        logger.debug(f"[ Using actual file_id: {actual_file_id}")
 
                         await client.send_cached_media(
                             chat_id=callback_query.from_user.id,
@@ -693,11 +662,11 @@ async def download_movie_with_subtitles(client, callback_query):
                             caption=f_caption,
                             protect_content=PROTECT_CONTENT
                         )
-                        print(f"[DOWNLOAD] Movie with subtitle sent successfully: {title}")
+                        logger.debug(f"[ Movie with subtitle sent successfully: {title}")
 
                 except Exception as e:
-                    await callback_query.answer(f"⚠️ Error sending movie: {e}", show_alert=True)
-                    print(f"[ERROR] Failed to send movie: {e}")
+                    await callback_query.answer(f"âš ï¸ Error sending movie: {e}", show_alert=True)
+                    logger.debug(f"[ Failed to send movie: {e}")
             else:
                 # Subtitles were found but all downloads failed - provide web links
                 sources_tried = ", ".join(tried_sources) if tried_sources else "unknown sources"
@@ -711,28 +680,28 @@ async def download_movie_with_subtitles(client, callback_query):
 
                 # Create buttons for web links
                 web_link_buttons = [
-                    [InlineKeyboardButton("🔗 OpenSubtitles.org", url=web_links['opensubtitles'])],
-                    [InlineKeyboardButton("🔗 Subdl.com", url=web_links['subdl'])],
-                    [InlineKeyboardButton("🔗 Subscene.com", url=web_links['subscene'])],
-                    [InlineKeyboardButton("🔗 YifySubtitles.ch", url=web_links['yifysubtitles'])],
-                    [InlineKeyboardButton("─────────────────", callback_data='separator')],
-                    [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
-                    [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
-                    [InlineKeyboardButton("◀️ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
-                    [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
+                    [InlineKeyboardButton("ðŸ”— OpenSubtitles.org", url=web_links['opensubtitles'])],
+                    [InlineKeyboardButton("ðŸ”— Subdl.com", url=web_links['subdl'])],
+                    [InlineKeyboardButton("ðŸ”— Subscene.com", url=web_links['subscene'])],
+                    [InlineKeyboardButton("ðŸ”— YifySubtitles.ch", url=web_links['yifysubtitles'])],
+                    [InlineKeyboardButton("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€", callback_data='separator')],
+                    [InlineKeyboardButton("ðŸ‡¬ðŸ‡§ Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
+                    [InlineKeyboardButton("ðŸ“¥ Download Movie Only", callback_data=f'download_only#{file_id_val}')],
+                    [InlineKeyboardButton("â—€ï¸ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
+                    [InlineKeyboardButton("âŒ Cancel", callback_data='cancel_download')]
                 ]
 
                 await callback_query.message.edit_text(
-                    f"❌ **Automatic Download Failed**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
-                    f"🌐 **Language:** `{language.upper()}`\n"
-                    f"📊 **Sources tried:** {len(tried_sources)}\n\n"
+                    f"âŒ **Automatic Download Failed**\n\n"
+                    f"ðŸŽ¬ **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
+                    f"ðŸŒ **Language:** `{language.upper()}`\n"
+                    f"ðŸ“Š **Sources tried:** {len(tried_sources)}\n\n"
                     f"**We tried:** {sources_tried}\n\n"
-                    f"🔗 **Manual Download Links:**\n"
+                    f"ðŸ”— **Manual Download Links:**\n"
                     f"Click any link below to search and download subtitles manually:\n\n"
-                    f"✅ All links open the search for your movie in **{language.upper()}** language.\n"
-                    f"✅ Choose the subtitle that matches your movie version.\n"
-                    f"✅ Download and sync with your video player.\n\n"
+                    f"âœ… All links open the search for your movie in **{language.upper()}** language.\n"
+                    f"âœ… Choose the subtitle that matches your movie version.\n"
+                    f"âœ… Download and sync with your video player.\n\n"
                     f"**Or try another option below:**",
                     reply_markup=InlineKeyboardMarkup(web_link_buttons)
                 )
@@ -749,41 +718,41 @@ async def download_movie_with_subtitles(client, callback_query):
 
             if language == 'si':
                 message = (
-                    f"❌ **No Sinhala Subtitles Found Automatically**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n\n"
-                    f"🇱🇰 **Sinhala subtitles are rare** for some movies.\n\n"
-                    f"🔗 **Try These Websites:**\n"
+                    f"âŒ **No Sinhala Subtitles Found Automatically**\n\n"
+                    f"ðŸŽ¬ **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n\n"
+                    f"ðŸ‡±ðŸ‡° **Sinhala subtitles are rare** for some movies.\n\n"
+                    f"ðŸ”— **Try These Websites:**\n"
                     f"Click the links below to search manually. You might find subtitles that our bot couldn't auto-download:\n\n"
-                    f"💡 **Tip:** Try English subtitles - they're more commonly available."
+                    f"ðŸ’¡ **Tip:** Try English subtitles - they're more commonly available."
                 )
             else:
                 message = (
-                    f"❌ **No {language.upper()} Subtitles Found Automatically**\n\n"
-                    f"🎬 **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
-                    f"🌐 **Language:** `{language.upper()}`\n\n"
-                    f"🔗 **Search These Subtitle Websites:**\n"
+                    f"âŒ **No {language.upper()} Subtitles Found Automatically**\n\n"
+                    f"ðŸŽ¬ **Movie:** `{selected_file.get('file_name', 'Unknown')}`\n"
+                    f"ðŸŒ **Language:** `{language.upper()}`\n\n"
+                    f"ðŸ”— **Search These Subtitle Websites:**\n"
                     f"Click any link below to search manually. Sometimes subtitles exist but can't be auto-downloaded:\n\n"
-                    f"✅ All links pre-search for your movie in **{language.upper()}**."
+                    f"âœ… All links pre-search for your movie in **{language.upper()}**."
                 )
 
             # Create buttons with web links first, then options
             btn = [
-                [InlineKeyboardButton("🔗 OpenSubtitles.org", url=web_links['opensubtitles'])],
-                [InlineKeyboardButton("🔗 Subdl.com", url=web_links['subdl'])],
-                [InlineKeyboardButton("🔗 Subscene.com", url=web_links['subscene'])],
-                [InlineKeyboardButton("🔗 YifySubtitles.ch", url=web_links['yifysubtitles'])],
-                [InlineKeyboardButton("─────────────────", callback_data='separator')],
-                [InlineKeyboardButton("🇬🇧 Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
-                [InlineKeyboardButton("📥 Download Movie Only", callback_data=f'download_only#{file_id_val}')],
-                [InlineKeyboardButton("◀️ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
-                [InlineKeyboardButton("❌ Cancel", callback_data='cancel_download')]
+                [InlineKeyboardButton("ðŸ”— OpenSubtitles.org", url=web_links['opensubtitles'])],
+                [InlineKeyboardButton("ðŸ”— Subdl.com", url=web_links['subdl'])],
+                [InlineKeyboardButton("ðŸ”— Subscene.com", url=web_links['subscene'])],
+                [InlineKeyboardButton("ðŸ”— YifySubtitles.ch", url=web_links['yifysubtitles'])],
+                [InlineKeyboardButton("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€", callback_data='separator')],
+                [InlineKeyboardButton("ðŸ‡¬ðŸ‡§ Try English Instead", callback_data=f'download_with_sub#{file_key}#en')],
+                [InlineKeyboardButton("ðŸ“¥ Download Movie Only", callback_data=f'download_only#{file_id_val}')],
+                [InlineKeyboardButton("â—€ï¸ Back to Languages", callback_data=f'select_movie#{file_key.replace("file_", "")}')],
+                [InlineKeyboardButton("âŒ Cancel", callback_data='cancel_download')]
             ]
 
             await callback_query.message.edit_text(message, reply_markup=InlineKeyboardMarkup(btn))
         
     except Exception as e:
         logger.error(f"Error in download with subtitles: {e}")
-        await callback_query.answer("❌ Error occurred while processing subtitles.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred while processing subtitles.", show_alert=True)
 
 # More languages handler
 @Client.on_callback_query(filters.regex(r'^more_languages#'))
@@ -794,26 +763,26 @@ async def show_more_languages(client, callback_query):
         
         # Extended language options
         btn = [
-            [InlineKeyboardButton("🇯🇵 Japanese", callback_data=f'download_with_sub#{file_key}#ja')],
-            [InlineKeyboardButton("🇰🇷 Korean", callback_data=f'download_with_sub#{file_key}#ko')],
-            [InlineKeyboardButton("🇮🇹 Italian", callback_data=f'download_with_sub#{file_key}#it')],
-            [InlineKeyboardButton("🇵🇹 Portuguese", callback_data=f'download_with_sub#{file_key}#pt')],
-            [InlineKeyboardButton("🇷🇺 Russian", callback_data=f'download_with_sub#{file_key}#ru')],
-            [InlineKeyboardButton("🇨🇳 Chinese", callback_data=f'download_with_sub#{file_key}#zh')],
-            [InlineKeyboardButton("🇦🇷 Arabic", callback_data=f'download_with_sub#{file_key}#ar')],
-            [InlineKeyboardButton("◀️ Back to Main", callback_data=f'back_to_main_langs#{file_key}')],
-            [InlineKeyboardButton("❌ No Subtitles", callback_data=f'back_to_movies#{file_key}')]
+            [InlineKeyboardButton("ðŸ‡¯ðŸ‡µ Japanese", callback_data=f'download_with_sub#{file_key}#ja')],
+            [InlineKeyboardButton("ðŸ‡°ðŸ‡· Korean", callback_data=f'download_with_sub#{file_key}#ko')],
+            [InlineKeyboardButton("ðŸ‡®ðŸ‡¹ Italian", callback_data=f'download_with_sub#{file_key}#it')],
+            [InlineKeyboardButton("ðŸ‡µðŸ‡¹ Portuguese", callback_data=f'download_with_sub#{file_key}#pt')],
+            [InlineKeyboardButton("ðŸ‡·ðŸ‡º Russian", callback_data=f'download_with_sub#{file_key}#ru')],
+            [InlineKeyboardButton("ðŸ‡¨ðŸ‡³ Chinese", callback_data=f'download_with_sub#{file_key}#zh')],
+            [InlineKeyboardButton("ðŸ‡¦ðŸ‡· Arabic", callback_data=f'download_with_sub#{file_key}#ar')],
+            [InlineKeyboardButton("â—€ï¸ Back to Main", callback_data=f'back_to_main_langs#{file_key}')],
+            [InlineKeyboardButton("âŒ No Subtitles", callback_data=f'back_to_movies#{file_key}')]
         ]
         
         await callback_query.message.edit_text(
-            f"🌐 **More Subtitle Languages**\n\n"
+            f"ðŸŒ **More Subtitle Languages**\n\n"
             f"Choose your preferred language:",
             reply_markup=InlineKeyboardMarkup(btn)
         )
         
     except Exception as e:
         logger.error(f"Error in more languages: {e}")
-        await callback_query.answer("❌ Error occurred. Please try again.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred. Please try again.", show_alert=True)
 
 # Back to main languages
 @Client.on_callback_query(filters.regex(r'^back_to_main_langs#'))
@@ -824,45 +793,45 @@ async def back_to_main_languages(client, callback_query):
         
         # Get file info from temp storage
         if file_key not in temp.PM_SEARCH_RESULTS:
-            return await callback_query.answer("❌ File data expired. Please search again.", show_alert=True)
+            return await callback_query.answer("âŒ File data expired. Please search again.", show_alert=True)
             
         file_data = temp.PM_SEARCH_RESULTS[file_key]
         selected_file = file_data['file']
             
         movie_info = (
-            f"🎬 **Selected Movie**\n\n"
-            f"📁 **Name:** `{selected_file.get('file_name', 'Unknown')}`\n"
-            f"📊 **Size:** `{get_size(selected_file.get('file_size', 0))}`\n\n"
-            f"🌐 **Choose subtitle language or download without subtitles:**"
+            f"ðŸŽ¬ **Selected Movie**\n\n"
+            f"ðŸ“ **Name:** `{selected_file.get('file_name', 'Unknown')}`\n"
+            f"ðŸ“Š **Size:** `{get_size(selected_file.get('file_size', 0))}`\n\n"
+            f"ðŸŒ **Choose subtitle language or download without subtitles:**"
         )
 
         # Extract file_id before using in f-string to avoid syntax error
         file_id_val = selected_file.get('_id', '')
         # Main language buttons
         btn = [
-            [InlineKeyboardButton("🇬🇧 English", callback_data=f'download_with_sub#{file_key}#en')],
-            [InlineKeyboardButton("🇪🇸 Spanish", callback_data=f'download_with_sub#{file_key}#es')],
-            [InlineKeyboardButton("🇫🇷 French", callback_data=f'download_with_sub#{file_key}#fr')],
-            [InlineKeyboardButton("🇩🇪 German", callback_data=f'download_with_sub#{file_key}#de')],
-            [InlineKeyboardButton("🇮🇳 Hindi", callback_data=f'download_with_sub#{file_key}#hi')],
-            [InlineKeyboardButton("🇱🇰 Sinhala", callback_data=f'download_with_sub#{file_key}#si')],
-            [InlineKeyboardButton("🌐 More Languages", callback_data=f'more_languages#{file_key}')],
-            [InlineKeyboardButton("❌ No Subtitles", callback_data=f'download_only#{file_id_val}')],
-            [InlineKeyboardButton("◀️ Back to Movies", callback_data=f'back_to_movies#{file_key}')]
+            [InlineKeyboardButton("ðŸ‡¬ðŸ‡§ English", callback_data=f'download_with_sub#{file_key}#en')],
+            [InlineKeyboardButton("ðŸ‡ªðŸ‡¸ Spanish", callback_data=f'download_with_sub#{file_key}#es')],
+            [InlineKeyboardButton("ðŸ‡«ðŸ‡· French", callback_data=f'download_with_sub#{file_key}#fr')],
+            [InlineKeyboardButton("ðŸ‡©ðŸ‡ª German", callback_data=f'download_with_sub#{file_key}#de')],
+            [InlineKeyboardButton("ðŸ‡®ðŸ‡³ Hindi", callback_data=f'download_with_sub#{file_key}#hi')],
+            [InlineKeyboardButton("ðŸ‡±ðŸ‡° Sinhala", callback_data=f'download_with_sub#{file_key}#si')],
+            [InlineKeyboardButton("ðŸŒ More Languages", callback_data=f'more_languages#{file_key}')],
+            [InlineKeyboardButton("âŒ No Subtitles", callback_data=f'download_only#{file_id_val}')],
+            [InlineKeyboardButton("â—€ï¸ Back to Movies", callback_data=f'back_to_movies#{file_key}')]
         ]
         
         await callback_query.message.edit_text(movie_info, reply_markup=InlineKeyboardMarkup(btn))
             
     except Exception as e:
         logger.error(f"Error in back to main languages: {e}")
-        await callback_query.answer("❌ Error occurred. Please try again.", show_alert=True)
+        await callback_query.answer("âŒ Error occurred. Please try again.", show_alert=True)
 
 # Cancel download handler
 @Client.on_callback_query(filters.regex(r'^cancel_download$'))
 async def cancel_download(client, callback_query):
     """Cancel download operation"""
     await callback_query.message.edit_text(
-        "❌ **Download cancelled by user.**\n\n"
+        "âŒ **Download cancelled by user.**\n\n"
         "You can start a new search anytime by sending a movie name."
     )
 
@@ -885,6 +854,7 @@ async def debug_callback_handler(client, callback_query):
         print(f"[DEBUG_CALLBACK] Temp storage keys: {list(temp.PM_SEARCH_RESULTS.keys()) if hasattr(temp, 'PM_SEARCH_RESULTS') else 'No PM_SEARCH_RESULTS'}")
 
     # Don't handle it here - let other handlers process it
+
 
 
 

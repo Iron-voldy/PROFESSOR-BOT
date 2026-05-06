@@ -47,7 +47,9 @@ class Bot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            plugins=dict(root="plugins")
+            plugins=dict(root="plugins"),
+            workers=24,        # Handle more concurrent updates (default is 4)
+            max_concurrent_transmissions=8  # Allow more parallel file operations
         )
 
     async def start(self):

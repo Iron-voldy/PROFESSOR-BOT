@@ -4,7 +4,7 @@ from info import DATABASE_NAME, DATABASE_URL, DATABASE_URL_FALLBACK, IMDB, IMDB_
 class Database:
     
     def __init__(self, uri, database_name, fallback_uri=None):
-        # Configure shorter timeouts for faster failure detection
+        # Configure reasonable timeouts with proper pool size
         self.uri = uri
         self.fallback_uri = fallback_uri or DATABASE_URL_FALLBACK
         self.database_name = database_name
@@ -13,10 +13,14 @@ class Database:
         try:
             self._client = motor.motor_asyncio.AsyncIOMotorClient(
                 uri,
-                serverSelectionTimeoutMS=5000,  # 5 seconds instead of 30
-                socketTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                maxPoolSize=1  # Reduce connection pool for faster startup
+                serverSelectionTimeoutMS=10000,
+                socketTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                maxPoolSize=10,     # Allow 10 concurrent DB operations
+                minPoolSize=2,      # Keep 2 connections ready
+                maxIdleTimeMS=300000,
+                retryWrites=True,
+                retryReads=True
             )
             print("Using primary MongoDB connection")
         except Exception as e:
@@ -26,10 +30,14 @@ class Database:
             # Use fallback connection
             self._client = motor.motor_asyncio.AsyncIOMotorClient(
                 self.fallback_uri,
-                serverSelectionTimeoutMS=5000,
-                socketTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                maxPoolSize=1
+                serverSelectionTimeoutMS=10000,
+                socketTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                maxPoolSize=10,
+                minPoolSize=2,
+                maxIdleTimeMS=300000,
+                retryWrites=True,
+                retryReads=True
             )
             print("Using fallback MongoDB connection")
         

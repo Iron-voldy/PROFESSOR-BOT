@@ -49,6 +49,21 @@ async def is_subscribed(bot, query):
 
 
 async def get_poster(query, bulk=False, id=False, file=None):
+    # Run synchronous IMDB lookups in a thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _get_poster_sync, query, bulk, id, file),
+            timeout=10  # 10 second timeout for IMDB lookups
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"IMDB lookup timed out for query: {query}")
+        return None
+    except Exception as e:
+        logger.error(f"IMDB lookup error: {e}")
+        return None
+
+def _get_poster_sync(query, bulk=False, id=False, file=None):
     imdb = Cinemagoer() 
     if not id:   
         query = (query.strip()).lower()

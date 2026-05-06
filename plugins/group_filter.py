@@ -158,25 +158,30 @@ async def advantage_spoll_choker(bot, query):
 
 @Client.on_message(filters.group & filters.text & filters.incoming & filters.chat(AUTH_GROUPS) if AUTH_GROUPS else filters.text & filters.incoming & filters.group)
 async def give_filter(client, message):
-    if G_FILTER:
-        if G_MODE.get(str(message.chat.id)) == "False":
-            return 
+    try:
+        if G_FILTER:
+            if G_MODE.get(str(message.chat.id)) == "False":
+                return 
+            else:
+                kd = await global_filters(client, message)
+            if kd == False:          
+                k = await manual_filters(client, message)
+                if k == False:
+                    if FILTER_MODE.get(str(message.chat.id)) == "False":
+                        return
+                    else:
+                        await auto_filter(client, message)   
         else:
-            kd = await global_filters(client, message)
-        if kd == False:          
             k = await manual_filters(client, message)
             if k == False:
                 if FILTER_MODE.get(str(message.chat.id)) == "False":
                     return
                 else:
-                    await auto_filter(client, message)   
-    else:
-        k = await manual_filters(client, message)
-        if k == False:
-            if FILTER_MODE.get(str(message.chat.id)) == "False":
-                return
-            else:
-                await auto_filter(client, message)
+                    await auto_filter(client, message)
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        logger.error(f"Error in give_filter: {e}")
 
 
 async def auto_filter(client, msg, spoll=False):
@@ -300,8 +305,16 @@ async def auto_filter(client, msg, spoll=False):
 async def advantage_spell_chok(msg):
     query = re.sub(r"\b(pl(i|e)*?(s|z+|ease|se|ese|(e+)s(e)?)|((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|br((o|u)h?)*|^h(e|a)?(l)*(o)*|mal(ayalam)?|t(h)?amil|file|that|find|und(o)*|kit(t(i|y)?)?o(w)?|thar(u)?(o)*w?|kittum(o)*|aya(k)*(um(o)*)?|full\smovie|any(one)|with\ssubtitle(s)?)","", msg.text, flags=re.IGNORECASE)  # plis contribute some common words
     query = query.strip() + " movie"
-    g_s = await search_gagala(query)
-    g_s += await search_gagala(msg.text)
+    # Run both Google searches concurrently for speed
+    g_s_results = await asyncio.gather(
+        search_gagala(query),
+        search_gagala(msg.text),
+        return_exceptions=True
+    )
+    g_s = []
+    for r in g_s_results:
+        if isinstance(r, list):
+            g_s += r
     gs_parsed = []
     if not g_s:
         k = await msg.reply("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏ Mᴏᴠɪᴇ Iɴ Tʜᴀᴛ Nᴀᴍᴇ")

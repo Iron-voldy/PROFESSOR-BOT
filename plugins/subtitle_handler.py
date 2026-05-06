@@ -1,4 +1,4 @@
-import aiohttp
+﻿import aiohttp
 import asyncio
 import re
 import json
@@ -14,20 +14,20 @@ logger = logging.getLogger(__name__)
 
 # Language mapping for subtitles
 LANGUAGE_MAPPING = {
-    'en': {'code': 'en', 'name': 'English', 'flag': '🇺🇸'},
-    'es': {'code': 'es', 'name': 'Spanish', 'flag': '🇪🇸'},
-    'fr': {'code': 'fr', 'name': 'French', 'flag': '🇫🇷'},
-    'de': {'code': 'de', 'name': 'German', 'flag': '🇩🇪'},
-    'it': {'code': 'it', 'name': 'Italian', 'flag': '🇮🇹'},
-    'pt': {'code': 'pt', 'name': 'Portuguese', 'flag': '🇵🇹'},
-    'ru': {'code': 'ru', 'name': 'Russian', 'flag': '🇷🇺'},
-    'ja': {'code': 'ja', 'name': 'Japanese', 'flag': '🇯🇵'},
-    'ko': {'code': 'ko', 'name': 'Korean', 'flag': '🇰🇷'},
-    'ar': {'code': 'ar', 'name': 'Arabic', 'flag': '🇸🇦'},
-    'hi': {'code': 'hi', 'name': 'Hindi', 'flag': '🇮🇳'},
-    'si': {'code': 'si', 'name': 'Sinhala', 'flag': '🇱🇰'},
-    'ta': {'code': 'ta', 'name': 'Tamil', 'flag': '🇮🇳'},
-    'zh': {'code': 'zh', 'name': 'Chinese', 'flag': '🇨🇳'}
+    'en': {'code': 'en', 'name': 'English', 'flag': 'ðŸ‡ºðŸ‡¸'},
+    'es': {'code': 'es', 'name': 'Spanish', 'flag': 'ðŸ‡ªðŸ‡¸'},
+    'fr': {'code': 'fr', 'name': 'French', 'flag': 'ðŸ‡«ðŸ‡·'},
+    'de': {'code': 'de', 'name': 'German', 'flag': 'ðŸ‡©ðŸ‡ª'},
+    'it': {'code': 'it', 'name': 'Italian', 'flag': 'ðŸ‡®ðŸ‡¹'},
+    'pt': {'code': 'pt', 'name': 'Portuguese', 'flag': 'ðŸ‡µðŸ‡¹'},
+    'ru': {'code': 'ru', 'name': 'Russian', 'flag': 'ðŸ‡·ðŸ‡º'},
+    'ja': {'code': 'ja', 'name': 'Japanese', 'flag': 'ðŸ‡¯ðŸ‡µ'},
+    'ko': {'code': 'ko', 'name': 'Korean', 'flag': 'ðŸ‡°ðŸ‡·'},
+    'ar': {'code': 'ar', 'name': 'Arabic', 'flag': 'ðŸ‡¸ðŸ‡¦'},
+    'hi': {'code': 'hi', 'name': 'Hindi', 'flag': 'ðŸ‡®ðŸ‡³'},
+    'si': {'code': 'si', 'name': 'Sinhala', 'flag': 'ðŸ‡±ðŸ‡°'},
+    'ta': {'code': 'ta', 'name': 'Tamil', 'flag': 'ðŸ‡®ðŸ‡³'},
+    'zh': {'code': 'zh', 'name': 'Chinese', 'flag': 'ðŸ‡¨ðŸ‡³'}
 }
 
 class SubtitleHandler:
@@ -50,11 +50,11 @@ class SubtitleHandler:
     async def search_all_sources(self, movie_name, language='en'):
         """Search multiple subtitle sources and return combined results"""
         try:
-            print(f"[SUBTITLE] Searching for '{movie_name}' in language '{language}'")
+            logger.debug(f"[ Searching for '{movie_name}' in language '{language}'")
             
             # Clean movie name
             clean_name = self._clean_movie_name(movie_name)
-            print(f"[SUBTITLE] Cleaned name: '{clean_name}'")
+            logger.debug(f"[ Cleaned name: '{clean_name}'")
             
             # Search multiple sources concurrently with real APIs
             tasks = [
@@ -71,9 +71,9 @@ class SubtitleHandler:
             for i, result in enumerate(results):
                 if isinstance(result, list):
                     all_subtitles.extend(result)
-                    print(f"[SUBTITLE] Source {i} returned {len(result)} subtitles")
+                    logger.debug(f"[ Source {i} returned {len(result)} subtitles")
                 else:
-                    print(f"[SUBTITLE] Source {i} failed: {result}")
+                    logger.debug(f"[ Source {i} failed: {result}")
             
             # Sort by relevance (prefer exact matches)
             all_subtitles.sort(key=lambda x: (
@@ -81,16 +81,16 @@ class SubtitleHandler:
                 x.get('source', 'z')  # Prefer certain sources
             ))
             
-            print(f"[SUBTITLE] Total found: {len(all_subtitles)} subtitles")
+            logger.debug(f"[ Total found: {len(all_subtitles)} subtitles")
             
             # Return only real subtitles - no fake/fallback entries
             if not all_subtitles:
-                print(f"[SUBTITLE] No real subtitles found - returning empty list")
+                logger.debug(f"[ No real subtitles found - returning empty list")
 
             return all_subtitles[:10]  # Return top 10 real results
             
         except Exception as e:
-            print(f"[SUBTITLE] Search error: {e}")
+            logger.debug(f"[ Search error: {e}")
             return []
     
     def _clean_movie_name(self, movie_name):
@@ -136,7 +136,7 @@ class SubtitleHandler:
             
             # Use proper Subdl search URL format
             url = f'https://subdl.com/s/{search_query}'
-            print(f"[SUBDL] Searching: {url}")
+            logger.debug(f"[ Searching: {url}")
             
             # Add proper headers to avoid blocking
             headers = {
@@ -150,7 +150,7 @@ class SubtitleHandler:
             
             async with session.get(url, headers=headers) as response:
                 if response.status != 200:
-                    print(f"[SUBDL] HTTP Error: {response.status}")
+                    logger.debug(f"[ HTTP Error: {response.status}")
                     return []
                 
                 html = await response.text()
@@ -182,14 +182,14 @@ class SubtitleHandler:
                                 'downloads': '1200'
                             })
                     except Exception as e:
-                        print(f"[SUBDL] Item parsing error: {e}")
+                        logger.debug(f"[ Item parsing error: {e}")
                         continue
                 
-                print(f"[SUBDL] Found {len(subtitles)} real subtitles")
+                logger.debug(f"[ Found {len(subtitles)} real subtitles")
                 return subtitles
                 
         except Exception as e:
-            print(f"[SUBDL] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_opensubtitles_web(self, movie_name, language='en'):
@@ -211,7 +211,7 @@ class SubtitleHandler:
             lang_code = lang_map.get(language, 'eng')
             url = f'https://www.opensubtitles.org/en/search/sublanguageid-{lang_code}/moviename-{search_query}'
             
-            print(f"[OPENSUBTITLES] Searching: {url}")
+            logger.debug(f"[ Searching: {url}")
             
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -220,16 +220,16 @@ class SubtitleHandler:
             
             async with session.get(url, headers=headers) as response:
                 if response.status == 403:
-                    print(f"[OPENSUBTITLES] Blocked (403), trying alternative approach")
+                    logger.debug(f"[ Blocked (403), trying alternative approach")
                     # Try without language filter
                     url_alt = f'https://www.opensubtitles.org/en/search/moviename-{search_query}'
                     async with session.get(url_alt, headers=headers) as alt_response:
                         if alt_response.status != 200:
-                            print(f"[OPENSUBTITLES] Alternative also failed: {alt_response.status}")
+                            logger.debug(f"[ Alternative also failed: {alt_response.status}")
                             return []
                         html = await alt_response.text()
                 elif response.status != 200:
-                    print(f"[OPENSUBTITLES] HTTP Error: {response.status}")
+                    logger.debug(f"[ HTTP Error: {response.status}")
                     return []
                 else:
                     html = await response.text()
@@ -260,14 +260,14 @@ class SubtitleHandler:
                         })
                         
                     except Exception as e:
-                        print(f"[OPENSUBTITLES] Link parsing error: {e}")
+                        logger.debug(f"[ Link parsing error: {e}")
                         continue
                 
-                print(f"[OPENSUBTITLES] Found {len(subtitles)} real subtitles")
+                logger.debug(f"[ Found {len(subtitles)} real subtitles")
                 return subtitles
                 
         except Exception as e:
-            print(f"[OPENSUBTITLES] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_yify_subtitles(self, movie_name, language='en'):
@@ -284,7 +284,7 @@ class SubtitleHandler:
             
             # Alternative: try YTS subtitle database
             yts_search_url = f'https://yts.mx/api/v2/list_movies.json?query_term={search_query}&limit=1'
-            print(f"[YIFY] Searching: {yts_search_url}")
+            logger.debug(f"[ Searching: {yts_search_url}")
             
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -293,14 +293,14 @@ class SubtitleHandler:
             
             async with session.get(yts_search_url, headers=headers) as response:
                 if response.status != 200:
-                    print(f"[YIFY] HTTP Error: {response.status}")
+                    logger.debug(f"[ HTTP Error: {response.status}")
                     return []
                 
                 data = await response.json()
                 movies = data.get('data', {}).get('movies', [])
                 
                 if not movies:
-                    print(f"[YIFY] No movies found")
+                    logger.debug(f"[ No movies found")
                     return []
                 
                 movie = movies[0]
@@ -337,13 +337,13 @@ class SubtitleHandler:
                                             'downloads': '1500'
                                         })
                             
-                            print(f"[YIFY] Found {len(subtitles)} subtitles")
+                            logger.debug(f"[ Found {len(subtitles)} subtitles")
                             return subtitles
                 
                 return []
                 
         except Exception as e:
-            print(f"[YIFY] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_subscene(self, movie_name, language='en'):
@@ -368,11 +368,11 @@ class SubtitleHandler:
             # Post search query
             data = {'query': clean_name}
             
-            print(f"[SUBSCENE] Searching for: {clean_name}")
+            logger.debug(f"[ Searching for: {clean_name}")
             
             async with session.post(url, headers=headers, data=data) as response:
                 if response.status != 200:
-                    print(f"[SUBSCENE] Search failed: {response.status}")
+                    logger.debug(f"[ Search failed: {response.status}")
                     return []
                 
                 html = await response.text()
@@ -382,7 +382,7 @@ class SubtitleHandler:
                 movie_links = soup.find_all('a', href=re.compile(r'/subtitles/'))
                 
                 if not movie_links:
-                    print(f"[SUBSCENE] No movie results found")
+                    logger.debug(f"[ No movie results found")
                     return []
                 
                 # Take first movie result
@@ -392,7 +392,7 @@ class SubtitleHandler:
                 # Get subtitles for this movie
                 async with session.get(movie_url, headers=headers) as movie_response:
                     if movie_response.status != 200:
-                        print(f"[SUBSCENE] Movie page failed: {movie_response.status}")
+                        logger.debug(f"[ Movie page failed: {movie_response.status}")
                         return []
                     
                     movie_html = await movie_response.text()
@@ -422,14 +422,14 @@ class SubtitleHandler:
                                         'downloads': '800'
                                     })
                         except Exception as e:
-                            print(f"[SUBSCENE] Row parsing error: {e}")
+                            logger.debug(f"[ Row parsing error: {e}")
                             continue
                     
-                    print(f"[SUBSCENE] Found {len(subtitles)} subtitles")
+                    logger.debug(f"[ Found {len(subtitles)} subtitles")
                     return subtitles
                 
         except Exception as e:
-            print(f"[SUBSCENE] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_subdl_api(self, movie_name, language='en'):
@@ -440,7 +440,7 @@ class SubtitleHandler:
             # Clean movie name
             clean_name = re.sub(r'[^\w\s]', ' ', movie_name).strip()
             
-            print(f"[SUBDL_API] Searching for: {clean_name} in {language}")
+            logger.debug(f"[ Searching for: {clean_name} in {language}")
             
             # Language mapping for Subdl API
             subdl_lang_map = {
@@ -467,7 +467,7 @@ class SubtitleHandler:
             }
             
             async with session.get(url, params=params, headers=headers) as response:
-                print(f"[SUBDL_API] Response status: {response.status}")
+                logger.debug(f"[ Response status: {response.status}")
                 
                 if response.status == 200:
                     data = await response.json()
@@ -496,18 +496,18 @@ class SubtitleHandler:
                                 'downloads': '5000'
                             })
                         
-                        print(f"[SUBDL_API] Found {len(subtitles)} real subtitles")
+                        logger.debug(f"[ Found {len(subtitles)} real subtitles")
                         return subtitles
                     else:
-                        print(f"[SUBDL_API] No subtitles found in response")
+                        logger.debug(f"[ No subtitles found in response")
                 else:
                     error_text = await response.text()
-                    print(f"[SUBDL_API] API Error: {response.status} - {error_text}")
+                    logger.debug(f"[ API Error: {response.status} - {error_text}")
             
             return []
             
         except Exception as e:
-            print(f"[SUBDL_API] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_opensubtitles_api(self, movie_name, language='en'):
@@ -518,7 +518,7 @@ class SubtitleHandler:
             # Clean movie name
             clean_name = re.sub(r'[^\w\s]', ' ', movie_name).strip()
 
-            print(f"[OPENSUBTITLES_API] Searching for: {clean_name} in {language}")
+            logger.debug(f"[ Searching for: {clean_name} in {language}")
 
             # OpenSubtitles API headers
             headers = {
@@ -536,7 +536,7 @@ class SubtitleHandler:
             }
 
             async with session.get(url, headers=headers, params=params) as response:
-                print(f"[OPENSUBTITLES_API] Response status: {response.status}")
+                logger.debug(f"[ Response status: {response.status}")
 
                 if response.status == 200:
                     data = await response.json()
@@ -551,7 +551,7 @@ class SubtitleHandler:
 
                         # Validate language matches
                         if sub_language and sub_language.lower() != language.lower():
-                            print(f"[OPENSUBTITLES_API] Skipping subtitle - wrong language: {sub_language} (wanted {language})")
+                            logger.debug(f"[ Skipping subtitle - wrong language: {sub_language} (wanted {language})")
                             continue
 
                         if files:
@@ -576,18 +576,18 @@ class SubtitleHandler:
                                     break
 
                     if subtitles:
-                        print(f"[OPENSUBTITLES_API] Found {len(subtitles)} real subtitles")
+                        logger.debug(f"[ Found {len(subtitles)} real subtitles")
                         return subtitles
                     else:
-                        print(f"[OPENSUBTITLES_API] No subtitles found for language: {language}")
+                        logger.debug(f"[ No subtitles found for language: {language}")
                 else:
                     error_text = await response.text()
-                    print(f"[OPENSUBTITLES_API] API Error: {response.status} - {error_text}")
+                    logger.debug(f"[ API Error: {response.status} - {error_text}")
 
             return []
 
         except Exception as e:
-            print(f"[OPENSUBTITLES_API] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
     
     async def search_yts_subtitles(self, movie_name, language='en'):
@@ -642,14 +642,14 @@ class SubtitleHandler:
                                             })
                                     
                                     if subtitles:
-                                        print(f"[REAL_SUB] Found {len(subtitles)} YIFY subtitles")
+                                        logger.debug(f"[ Found {len(subtitles)} YIFY subtitles")
                                         return subtitles
             
-            print(f"[REAL_SUB] No real subtitles found")
+            logger.debug(f"[ No real subtitles found")
             return []
             
         except Exception as e:
-            print(f"[REAL_SUB] YTS search error: {e}")
+            logger.debug(f"[ YTS search error: {e}")
             return []
     
     async def search_podnapisi(self, movie_name, language='en'):
@@ -660,7 +660,7 @@ class SubtitleHandler:
             # Clean movie name
             clean_name = re.sub(r'[^\w\s]', ' ', movie_name).strip()
 
-            print(f"[PODNAPISI] Searching for: {clean_name} in {language}")
+            logger.debug(f"[ Searching for: {clean_name} in {language}")
 
             # Language mapping for Podnapisi
             lang_map = {
@@ -685,7 +685,7 @@ class SubtitleHandler:
             }
 
             async with session.get(url, params=params, headers=headers) as response:
-                print(f"[PODNAPISI] Response status: {response.status}")
+                logger.debug(f"[ Response status: {response.status}")
 
                 if response.status == 200:
                     html = await response.text()
@@ -714,18 +714,18 @@ class SubtitleHandler:
                                     'downloads': '2000'
                                 })
                         except Exception as e:
-                            print(f"[PODNAPISI] Link parsing error: {e}")
+                            logger.debug(f"[ Link parsing error: {e}")
                             continue
 
-                    print(f"[PODNAPISI] Found {len(subtitles)} subtitles")
+                    logger.debug(f"[ Found {len(subtitles)} subtitles")
                     return subtitles
                 else:
-                    print(f"[PODNAPISI] Search failed: {response.status}")
+                    logger.debug(f"[ Search failed: {response.status}")
 
             return []
 
         except Exception as e:
-            print(f"[PODNAPISI] Error: {e}")
+            logger.debug(f"[ Error: {e}")
             return []
 
     async def search_alternative_api(self, movie_name, language='en'):
@@ -957,39 +957,39 @@ class SubtitleHandler:
                 ]
             elif language == 'si':
                 subtitles = [
-                    f"දැන් නරඹමු: {movie_title}",
-                    "මෙම උපසිරැසිය ස්වයංක්‍රීයව සාදන ලදී.",
-                    "සැබෑ උපසිරැසි සඳහා උපසිරැසි වෙබ් අඩවි පරීක්ෂා කරන්න.",
-                    "තවත් උපසිරැසි සඳහා opensubtitles.org වෙත යන්න.",
-                    "ඔබේ චිත්‍රපට අත්දැකීම විනෝද වන්න!",
-                    f"{movie_title} අවසානය"
+                    f"à¶¯à·à¶±à·Š à¶±à¶»à¶¹à¶¸à·”: {movie_title}",
+                    "à¶¸à·™à¶¸ à¶‹à¶´à·ƒà·’à¶»à·à·ƒà·’à¶º à·ƒà·Šà·€à¶ºà¶‚à¶šà·Šâ€à¶»à·“à¶ºà·€ à·ƒà·à¶¯à¶± à¶½à¶¯à·“.",
+                    "à·ƒà·à¶¶à·‘ à¶‹à¶´à·ƒà·’à¶»à·à·ƒà·’ à·ƒà¶³à·„à· à¶‹à¶´à·ƒà·’à¶»à·à·ƒà·’ à·€à·™à¶¶à·Š à¶…à¶©à·€à·’ à¶´à¶»à·“à¶šà·Šà·‚à· à¶šà¶»à¶±à·Šà¶±.",
+                    "à¶­à·€à¶­à·Š à¶‹à¶´à·ƒà·’à¶»à·à·ƒà·’ à·ƒà¶³à·„à· opensubtitles.org à·€à·™à¶­ à¶ºà¶±à·Šà¶±.",
+                    "à¶”à¶¶à·š à¶ à·’à¶­à·Šâ€à¶»à¶´à¶§ à¶…à¶­à·Šà¶¯à·à¶šà·“à¶¸ à·€à·’à¶±à·à¶¯ à·€à¶±à·Šà¶±!",
+                    f"{movie_title} à¶…à·€à·ƒà·à¶±à¶º"
                 ]
             elif language == 'es':
                 subtitles = [
                     f"Ahora viendo: {movie_title}",
-                    "Este subtítulo fue generado automáticamente.",
-                    "Para subtítulos reales, consulte sitios web de subtítulos.",
-                    "Visite opensubtitles.org para más subtítulos.",
-                    "¡Disfruta de tu experiencia cinematográfica!",
+                    "Este subtÃ­tulo fue generado automÃ¡ticamente.",
+                    "Para subtÃ­tulos reales, consulte sitios web de subtÃ­tulos.",
+                    "Visite opensubtitles.org para mÃ¡s subtÃ­tulos.",
+                    "Â¡Disfruta de tu experiencia cinematogrÃ¡fica!",
                     f"Fin de {movie_title}"
                 ]
             elif language == 'fr':
                 subtitles = [
                     f"Maintenant en cours: {movie_title}",
-                    "Ce sous-titre a été généré automatiquement.",
+                    "Ce sous-titre a Ã©tÃ© gÃ©nÃ©rÃ© automatiquement.",
                     "Pour de vrais sous-titres, consultez les sites de sous-titres.",
                     "Visitez opensubtitles.org pour plus de sous-titres.",
-                    "Profitez de votre expérience cinématographique!",
+                    "Profitez de votre expÃ©rience cinÃ©matographique!",
                     f"Fin de {movie_title}"
                 ]
             elif language == 'hi':
                 subtitles = [
-                    f"अब देख रहे हैं: {movie_title}",
-                    "यह उपशीर्षक स्वचालित रूप से बनाया गया था।",
-                    "वास्तविक उपशीर्षक के लिए, उपशीर्षक वेबसाइट देखें।",
-                    "अधिक उपशीर्षक के लिए opensubtitles.org पर जाएं।",
-                    "अपने फिल्म अनुभव का आनंद लें!",
-                    f"{movie_title} का अंत"
+                    f"à¤…à¤¬ à¤¦à¥‡à¤– à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚: {movie_title}",
+                    "à¤¯à¤¹ à¤‰à¤ªà¤¶à¥€à¤°à¥à¤·à¤• à¤¸à¥à¤µà¤šà¤¾à¤²à¤¿à¤¤ à¤°à¥‚à¤ª à¤¸à¥‡ à¤¬à¤¨à¤¾à¤¯à¤¾ à¤—à¤¯à¤¾ à¤¥à¤¾à¥¤",
+                    "à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤‰à¤ªà¤¶à¥€à¤°à¥à¤·à¤• à¤•à¥‡ à¤²à¤¿à¤, à¤‰à¤ªà¤¶à¥€à¤°à¥à¤·à¤• à¤µà¥‡à¤¬à¤¸à¤¾à¤‡à¤Ÿ à¤¦à¥‡à¤–à¥‡à¤‚à¥¤",
+                    "à¤…à¤§à¤¿à¤• à¤‰à¤ªà¤¶à¥€à¤°à¥à¤·à¤• à¤•à¥‡ à¤²à¤¿à¤ opensubtitles.org à¤ªà¤° à¤œà¤¾à¤à¤‚à¥¤",
+                    "à¤…à¤ªà¤¨à¥‡ à¤«à¤¿à¤²à¥à¤® à¤…à¤¨à¥à¤­à¤µ à¤•à¤¾ à¤†à¤¨à¤‚à¤¦ à¤²à¥‡à¤‚!",
+                    f"{movie_title} à¤•à¤¾ à¤…à¤‚à¤¤"
                 ]
             else:
                 # Default English
@@ -1018,39 +1018,39 @@ class SubtitleHandler:
                     ""
                 ])
             
-            print(f"[SUBTITLE] Created intelligent subtitle for {movie_title} in {language}")
+            logger.debug(f"[ Created intelligent subtitle for {movie_title} in {language}")
             return "\n".join(srt_content)
             
         except Exception as e:
-            print(f"[SUBTITLE] Error creating intelligent subtitle: {e}")
+            logger.debug(f"[ Error creating intelligent subtitle: {e}")
             # Fallback to simple version
             return "1\n00:00:00,000 --> 00:00:05,000\nSubtitle generated\n\n2\n00:00:05,000 --> 00:00:10,000\nEnjoy the movie!\n"
 
 def create_language_selection_keyboard(user_id, file_id, movie_name):
     """Create language selection keyboard"""
     btn = [
-        [InlineKeyboardButton("🇬🇧 English", callback_data=f'subtitle#{user_id}#{file_id}#en#{movie_name}')],
-        [InlineKeyboardButton("🇱🇰 Sinhala", callback_data=f'subtitle#{user_id}#{file_id}#si#{movie_name}')],
-        [InlineKeyboardButton("🇪🇸 Spanish", callback_data=f'subtitle#{user_id}#{file_id}#es#{movie_name}')],
-        [InlineKeyboardButton("🇫🇷 French", callback_data=f'subtitle#{user_id}#{file_id}#fr#{movie_name}')],
-        [InlineKeyboardButton("🇩🇪 German", callback_data=f'subtitle#{user_id}#{file_id}#de#{movie_name}')],
-        [InlineKeyboardButton("🇮🇳 Hindi", callback_data=f'subtitle#{user_id}#{file_id}#hi#{movie_name}')],
-        [InlineKeyboardButton("🌐 More Languages", callback_data=f'more_langs#{user_id}#{file_id}#{movie_name}')],
-        [InlineKeyboardButton("❌ No Subtitles", callback_data=f'no_subs#{user_id}#{file_id}')]
+        [InlineKeyboardButton("ðŸ‡¬ðŸ‡§ English", callback_data=f'subtitle#{user_id}#{file_id}#en#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡±ðŸ‡° Sinhala", callback_data=f'subtitle#{user_id}#{file_id}#si#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡ªðŸ‡¸ Spanish", callback_data=f'subtitle#{user_id}#{file_id}#es#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡«ðŸ‡· French", callback_data=f'subtitle#{user_id}#{file_id}#fr#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡©ðŸ‡ª German", callback_data=f'subtitle#{user_id}#{file_id}#de#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡®ðŸ‡³ Hindi", callback_data=f'subtitle#{user_id}#{file_id}#hi#{movie_name}')],
+        [InlineKeyboardButton("ðŸŒ More Languages", callback_data=f'more_langs#{user_id}#{file_id}#{movie_name}')],
+        [InlineKeyboardButton("âŒ No Subtitles", callback_data=f'no_subs#{user_id}#{file_id}')]
     ]
     return InlineKeyboardMarkup(btn)
 
 def create_more_languages_keyboard(user_id, file_id, movie_name):
     """Create extended language selection keyboard"""
     btn = [
-        [InlineKeyboardButton("🇯🇵 Japanese", callback_data=f'subtitle#{user_id}#{file_id}#ja#{movie_name}')],
-        [InlineKeyboardButton("🇰🇷 Korean", callback_data=f'subtitle#{user_id}#{file_id}#ko#{movie_name}')],
-        [InlineKeyboardButton("🇮🇹 Italian", callback_data=f'subtitle#{user_id}#{file_id}#it#{movie_name}')],
-        [InlineKeyboardButton("🇵🇹 Portuguese", callback_data=f'subtitle#{user_id}#{file_id}#pt#{movie_name}')],
-        [InlineKeyboardButton("🇷🇺 Russian", callback_data=f'subtitle#{user_id}#{file_id}#ru#{movie_name}')],
-        [InlineKeyboardButton("🇨🇳 Chinese", callback_data=f'subtitle#{user_id}#{file_id}#zh#{movie_name}')],
-        [InlineKeyboardButton("🇦🇷 Arabic", callback_data=f'subtitle#{user_id}#{file_id}#ar#{movie_name}')],
-        [InlineKeyboardButton("◀️ Back to Main", callback_data=f'back_langs#{user_id}#{file_id}#{movie_name}')]
+        [InlineKeyboardButton("ðŸ‡¯ðŸ‡µ Japanese", callback_data=f'subtitle#{user_id}#{file_id}#ja#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡°ðŸ‡· Korean", callback_data=f'subtitle#{user_id}#{file_id}#ko#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡®ðŸ‡¹ Italian", callback_data=f'subtitle#{user_id}#{file_id}#it#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡µðŸ‡¹ Portuguese", callback_data=f'subtitle#{user_id}#{file_id}#pt#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡·ðŸ‡º Russian", callback_data=f'subtitle#{user_id}#{file_id}#ru#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡¨ðŸ‡³ Chinese", callback_data=f'subtitle#{user_id}#{file_id}#zh#{movie_name}')],
+        [InlineKeyboardButton("ðŸ‡¦ðŸ‡· Arabic", callback_data=f'subtitle#{user_id}#{file_id}#ar#{movie_name}')],
+        [InlineKeyboardButton("â—€ï¸ Back to Main", callback_data=f'back_langs#{user_id}#{file_id}#{movie_name}')]
     ]
     return InlineKeyboardMarkup(btn)
 
@@ -1061,14 +1061,14 @@ def create_subtitle_results_keyboard(subtitles, user_id, file_id, language, movi
         title = sub.get('title', 'Unknown')[:40]  # Truncate long titles
         source = sub.get('source', 'Unknown').upper()
         btn.append([InlineKeyboardButton(
-            f"📄 {title} ({source})",
+            f"ðŸ“„ {title} ({source})",
             callback_data=f'dl_sub#{user_id}#{file_id}#{i}#{language}#{movie_name}'
         )])
     
     # Add back and no subtitles options
     btn.extend([
-        [InlineKeyboardButton("◀️ Back to Languages", callback_data=f'sub_sel#{user_id}#{file_id}#{movie_name}')],
-        [InlineKeyboardButton("❌ No Subtitles", callback_data=f'no_subs#{user_id}#{file_id}')]
+        [InlineKeyboardButton("â—€ï¸ Back to Languages", callback_data=f'sub_sel#{user_id}#{file_id}#{movie_name}')],
+        [InlineKeyboardButton("âŒ No Subtitles", callback_data=f'no_subs#{user_id}#{file_id}')]
     ])
     
     return InlineKeyboardMarkup(btn)
